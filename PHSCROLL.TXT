@@ -1,0 +1,1697 @@
+;        1         2         3         4         5         6         7         8
+;2345678901234567890123456789012345678901234567890123456789012345678901234567890
+;*******************************************************************************
+
+                          Phase Scrolling Methodology
+                               by Jeffrey Young
+
+=================
+Table of Contents
+=================
+
+  Introduction
+
+  Infinite Scrolling
+    Screen
+    Tiles
+    Level Map
+
+  Scanwalk Scrolling
+    Memory Layout
+    Tile Scanlines
+    Scanwalk Lines
+    Scanwalk Tile Lines
+    Minimal Buffer
+    Overflow Bytes
+    Playfield Buffer
+
+  Phase Scrolling
+    Phases
+    Normalization
+    Normalizing Speed
+    Normalizing Orientation
+    Normalizing Phase
+    Directional Changes
+    Speed Changes
+    Phase Compensation
+    Phase Completion
+    Fill Gauge
+
+
+===================
+Topic:Introduction
+===================
+
+This text file is a supplement to the Atari STE phase scroll demo PHSCROLL.TOS.
+
+**TODO add github link here!!
+
+It is meant to provide the methodology behind phase scrolling and topics of
+application.
+
+It does not attempt to document how to program STE hardware or the phase scroll
+alogorithm. The source code for the demo PHSCROLL.S is fully commented and
+provides a good foundation for that.
+
+For technical details of the STE features used in the demo, below are some
+recommended resources:
+
+Atari STE FAQ
+https://www.atari-wiki.com/index.php?title=Atari_STE_FAQ_compiled_by_The_Paranoid_/_Paradox
+
+Blitter FAQ
+https://www.atari-wiki.com/index.php?title=The_Atari_ST(E)_BLiTTER_in_brief_by_The_Paranoid_of_Paradox_2012
+
+For jumping straight to a topic you can use the search function of your text
+editer. Each section starts with the keyword 'Topic:' followed by the topic
+name from the Table of Contents. So, for example, to jump immediately to the
+section on phase scrolling search for 'Topic:Phase Scrolling' without the
+single quotes.
+
+
+========================
+Topic:Infinite Scrolling
+========================
+
+Infinite scrolling is a tile-based scrolling technique used to provide the
+illusion of continous, never-ending graphics movement across a background
+displayed on the physical screen. Typically it used for game levels used in
+conjunction with tile graphics data set and level map.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+See Topic:Tiles
+See Topic:Level Map
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+============
+Topic:Screen
+============
+
+The graphics display of the STE in low resolution is dimensionally 320x200
+pixels and will be referred to as the 'screen'. This is represented in ram in
+planar format to accomodate the 16 color output of the shifter chip.
+
+This example will use a screen height of 160 lines instead of the full 200.
+This would leave 40 lines unused on-screen, but is just for example purposes as
+160 will divide evenly into the 'tile' size as will be seen below.
+
+                            .---pixels 0-319
+                            |
+ .--------------------------------------------------------.
+ |                                                        |
+ v                                                        v
++-----------------------------------------------------------+
+|                                                           |<---.
+|                                                           |    |
+|                                                           |    |
+|                                                           |    |
+|                                                           |    |
+|                                                           |    |
+|                                                           |    |
+|                                                           |    |
+|                     Display Screen                        |    |
+|                                                           |    |---lines 0-159
+|                                                           |    |
+|                                                           |    |
+|                                                           |    |
+|                                                           |    |
+|                                                           |    |
+|                                                           |    |
+|                                                           |    |
+|                                                           |    |
+|                                                           |<---'
++-----------------------------------------------------------+
+
+
+===========
+Topic:Tiles
+===========
+
+Tiles are an abstraction of graphics data represented as 'blocks' that are
+'imprinted' into the display screen ram in much the same manner as a rubber
+stamp would be impressed onto a piece of paper to transfer its image.
+
+Tiles in this example are 16x16, 4-plane graphics data blocks that are stored
+contiguously in memory separate from the screen ram. Each tile requires 128
+bytes as explained below for the 4-plane format used by the STE:
+
+                          16-pixel tile line (8 bytes)
+                                   |
+  .-----------------------------------------------------------------.
+  |                                                                 |
+  v                                                                 v
+      plane 0          plane 1          plane 2          plane 3
+     (2 bytes)        (2 bytes)        (2 bytes)        (2 bytes)
+ |................|................|................|................| line 0
+ |................|................|................|................| line 1
+ |................|................|................|................| line 2
+ |................|................|................|................| line 3
+ |................|................|................|................| line 4
+ |................|................|................|................| line 5
+ |................|................|................|................| line 6
+ |................|................|................|................| line 7
+ |................|................|................|................| line 8
+ |................|................|................|................| line 9
+ |................|................|................|................| line 10
+ |................|................|................|................| line 11
+ |................|................|................|................| line 12
+ |................|................|................|................| line 13
+ |................|................|................|................| line 14
+ |................|................|................|................| line 15
+
+ 8*16 = 128 bytes
+
+Displayed on-screen, tiles appear like this:
+
+   .---16 pixels
+   |
+.-----.
+|     |
+v     v
++-----+ <---.
+|     |     |
+|tile |     |---16 lines
+|     |     |
++-----+ <---'
+
+20 of these tiles will exactly fit along the display screen width and 10 will
+fit along the height of the screen forming a series of 'columns' and 'rows'.
+
+                            .---columns 0-19
+                            |
+ .--------------------------------------------------------.
+ |                                                        |
+ v                                                        v
++--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+| t| t| t| t| t| t| t| t| t| t| t| t| t| t| t| t| t| t| t| t|<---.
++--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+    |
+| t| t| t| t| t| t| t| t| t| t| t| t| t| t| t| t| t| t| t| t|    |
++--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+    |
+| t| t| t| t| t| t| t| t| t| t| t| t| t| t| t| t| t| t| t| t|    |
++--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+    |
+| t| t| t| t| t| t|                    | t| t| t| t| t| t| t|    |
++--+--+--+--+--+--+   Display Screen   +--+--+--+--+--+--+--+    |
+| t| t| t| t| t| t|                    | t| t| t| t| t| t| t|    |
++--+--+--+--+--+--+       (Tiles)      +--+--+--+--+--+--+--+    |---rows 0-9
+| t| t| t| t| t| t|                    | t| t| t| t| t| t| t|    |
++--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+    |
+| t| t| t| t| t| t| t| t| t| t| t| t| t| t| t| t| t| t| t| t|    |
++--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+    |
+| t| t| t| t| t| t| t| t| t| t| t| t| t| t| t| t| t| t| t| t|    |
++--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+    |
+| t| t| t| t| t| t| t| t| t| t| t| t| t| t| t| t| t| t| t| t|    |
++--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+    |
+| t| t| t| t| t| t| t| t| t| t| t| t| t| t| t| t| t| t| t| t|<---'
++--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+
+There are 200 tiles in the above example. Some of these tiles could be identical
+to others, as let's say, the lowest row might represent grass which could be
+made up of identical graphics data, repeated along the width of the screen.
+
++--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+|~~|~~|~~|~~|~~|~~|~~|~~|~~|~~|~~|~~|~~|~~|~~|~~|~~|~~|~~|~~|<---row 9
++--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+
+In this case, it would be inefficient to store 20 identical graphics data blocks
+in memory which would require 128*20 = 2560 bytes. Instead, it would be better
+to store only one 128 byte graphics block and have a way to point to it when
+copying graphics data into the screen ram. This is the idea of a 'level map'.
+
+
+===============
+Topic:Level Map
+===============
+Since each tile requires 128 bytes, the complete tile graphics data block can
+be seen as an indexable contiguous series of these 128 byte blocks.
+
+   tile 0---.       tile 1---.     tile 2---.      tile 3---.       etc..
+            |                |              |               |
+            v                v              v               v
+   |-- 128 bytes --|-- 128 bytes --|-- 128 bytes --|-- 128 bytes --|.......
+
+The level map is a multi-dimensional array defined in columns and rows or x,y.
+The array elements contain values that indicate which tile graphics data block
+to use for any particular tile position on the display screen. Below is an
+example level map for a 20x10 static screen where every tile would display
+the tile 0 graphics data block.
+
+The elements in this level map array are byte-sized constraining the indices to
+a value between 0-255. This would dictate a maximum of 256 distinct tiles that
+could be referenced in any particular tile graphics data block.
+
+level_map:
+;columns
+;      0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19
+ dc.b  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ;row 0
+ dc.b  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ;row 1
+ dc.b  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ;row 2
+ dc.b  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ;row 3
+ dc.b  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ;row 4
+ dc.b  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ;row 5
+ dc.b  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ;row 6
+ dc.b  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ;row 7
+ dc.b  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ;row 8
+ dc.b  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ;row 9
+;                  (describes 20x10 tile static screen)
+
+Extending the previous example of a screen display tile row with each tile in
+the row being the identical graphics data representing grass we can say that
+tile 2 contains the graphics data for a 'grass' tile. The level map would then
+reflect this in the last 20 bytes with the value 2 in each element of the 'row'.
+
+   tile 0---.       tile 1---.     tile 2---.      tile 3---.       etc..
+            |                |              |               |
+            v                v              v               v
+   |-- 128 bytes --|-- 128 bytes --|-- 128 bytes --|-- 128 bytes --|.......
+                                            ^
+                                            |
+                                         +--+
+                                         |~~|
+                                         +--+
+                                     'grass' tile
+                                     graphics data
+
+ level_map:
+ dc.b  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+ dc.b  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+ dc.b  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+ dc.b  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+ dc.b  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+ dc.b  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+ dc.b  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+ dc.b  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+ dc.b  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+ dc.b  2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2 <---row 9
+       ^                                                        ^
+       |                                                        |
+       '--------------------------------------------------------'
+                                   |
+                  use 'grass' tile 2 for the entire row
+                                   |
+                                   |
+                                   v
+     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+     |~~|~~|~~|~~|~~|~~|~~|~~|~~|~~|~~|~~|~~|~~|~~|~~|~~|~~|~~|~~|<---row 9
+     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+                          displayed on-screen
+
+Using this concept, the ram required to store tile graphics data for an entire
+row of identical tiles has been reduced from 128*20 = 2560 bytes down to just
+128*1 + 20 = 148 bytes. Further, this savings in memory usage increases the more
+times a tile is referenced in the level map.
+
+That explains the basic concept of a level map, with the caveat that so far,
+the examples have described the level map for a static screen.
+
+Extending this idea to allow infinite scrolling throughout a larger, virtual
+'level' uses the exact same principles except the level map column and row
+dimensions are increased as needed to describe the extents of the level.
+
+level_map:
+;columns
+;      0  1  2  3  4  5  6  7  8  9 10  ... 138 139 140 141 142 143
+ dc.b  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ...   0,  0,  0,  0,  0,  0 ;row 0
+ dc.b  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ...   0,  0,  0,  0,  0,  0 ;row 1
+ dc.b  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ...   0,  0,  0,  0,  0,  0 ;row 2
+ dc.b  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ...   0,  0,  0,  0,  0,  0 ;row 3
+ dc.b  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ...   0,  0,  0,  0,  0,  0 ;row 4
+ dc.b  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ...   0,  0,  0,  0,  0,  0 ;row 5
+ dc.b  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ...   0,  0,  0,  0,  0,  0 ;row 6
+ dc.b  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ...   0,  0,  0,  0,  0,  0 ;row 7
+ dc.b  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ...   0,  0,  0,  0,  0,  0 ;row 8
+ dc.b  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ...   0,  0,  0,  0,  0,  0 ;row 9
+;                (describes 144x10 tile scrollable level)
+
+
+========================
+Topic:Scanwalk Scrolling
+========================
+
+Scanwalk scrolling is a techinque for horizontal, so-called infinite scrolling,
+which is tile-based using a 'level map' with indices in each element that
+indicates which tile graphics block to use for each playfield position. The
+playfield screen is thus built upon columns and rows of such tiles.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+See Topic:Infinite Scrolling
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This method of horizontal scrolling can be either uni- or bi-directional with
+uni-directional scrolling needing a slightly smaller scanwalk playfield buffer
+as well as being marginally faster to process.
+
+As an example, a level map describing 144 horizontal columns or tiles with
+a screen height of 10 tiles would require 144*10=1440 bytes to store the map.
+This is for tile graphics data sets with a maximum number of 256 tiles so that
+each element of the level map can be byte-sized. Each indice would then be in
+the range of 0-255.
+
+With each tile's display size being 16x16 this would require 128 bytes for
+every tile in the set using the 4-plane graphics format of the STE.  For a 256
+element tile set this would require 256*128 = 32768 bytes total.
+~~~~~~~~~~~~~~~
+See Topic:Tiles
+~~~~~~~~~~~~~~~
+
+The scanwalk scrolling technique treats the entire screen as one contiguous
+scanline. This method requires additional hidden columns in the buffer
+layout to provide space to update or 'fill-in' upcoming tile data during
+times of fine scrolling so that these update columns are ready to be used as
+playfield display columns by the time a coarse scroll is needed and the
+physical screen pointer updated.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+See Topic:Memory Layout
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Apart from the buffer space needed to hold the visible display columns and the
+hidden update columns, additional space at the end of the buffer is needed to
+provide some room to continue to 'fill-in' upcoming data until the end of the
+level map is reached.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+See Topic:Overflow Bytes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This method of infinite scrolling requires a smaller total buffer size than some
+other scrolling techniques to achieve the same effect.
+
+
+===================
+Topic:Memory Layout
+===================
+
+The scanwalk playfield buffer is logically constructed as shown below. Details
+of each component is described in individual topics that follow.
+
+     scanwalk memory layout - logical view
+
+  +buffer start                                      -------------------------
+  |                                                  | u = update column     |
+  |+visible start     +visible end                   | t = playfield columns |
+  ||                  |                              | s = scroll column     |
+  ||                  |+fine scroll column           | . = overflow bytes    |
+  ||                  ||                             -------------------------
+  vv                  vv
+  uttttttttttttttttttttsu <---.                  <---.
+  uttttttttttttttttttttsu     |                      |
+  uttttttttttttttttttttsu     |                      |
+  uttttttttttttttttttttsu     |                      |
+  uttttttttttttttttttttsu     |---scanwalk           |
+  uttttttttttttttttttttsu     |   minimal buffer     |
+  uttttttttttttttttttttsu     |                      |
+  uttttttttttttttttttttsu     |                      |---scanwalk
+  uttttttttttttttttttttsu     |                      |   playfield buffer
+  uttttttttttttttttttttsu <---'                      |
+  ....................... <---.                      |
+  .......................     |                      |
+  .......................     |---scanwalk           |
+  .......................     |   overflow bytes     |
+  ........                <---'                  <---'
+
+     scanwalk memory layout - contiguous view
+
+-ttttttttttttttttttttS--ttttttttttttttttttttS--ttttttttttttttttttttS--tttttttttt
+ttttttttttS--ttttttttttttttttttttS--ttttttttttttttttttttS--ttttttttttttttttttttS
+--ttttttttttttttttttttS--ttttttttttttttttttttS--ttttttttttttttttttttS-..........
+................................................................................
+........
+
+To describe the scanwalk playfield buffer memory requirements, we'll look at
+the constituent parts its construction in the topics to follow.
+
+These topics will break down exactly how the scanwalk playfield buffer is
+constructed and what size the buffer ultimately needs to be for any particular
+playfield size.
+
+
+====================
+Topic:Tile Scanlines
+====================
+
+The scanwalk playfield buffer is logically comprised of tiles, each 16x16.
+
+Since the tiles are 16 pixels in width, for the 4-plane graphics format of the
+STE each line of the tiles height (a 'tile scanline') requires 8 bytes.
+
+                     16-pixel tile scanline (8 bytes)
+                                   |
+  .-----------------------------------------------------------------.
+  |                                                                 |
+  v                                                                 v
+      plane 0          plane 1          plane 2          plane 3
+     (2 bytes)        (2 bytes)        (2 bytes)        (2 bytes)
+ |................|................|................|................|
+
+  2*4 = 8 bytes
+
+
+====================
+Topic:Scanwalk Lines
+====================
+
+A scanwalk line is comprised of tile scanline segments, each requiring a certain
+number of bytes.  In total a scanwalk scanline requires 184 bytes.
+
+  .--- left update scanline (8 bytes)
+  |
+  |                    .---playfield tiles scanlines - 160 bytes
+  |                    |
+  | .-------------------------------------.
+  | |                                     |
+  v v                                     v
+ |8|                   160                 |8|8|<---1 scanwalk scanline
+                                            ^ ^
+                                            | |
+                                            | '---right update scanline (8 bytes)
+                                            |
+                                            '-----scroll tile scanline (8 bytes)
+
+  8+160+8+8 = 184 bytes
+
+
+==========================
+Topic: Scanwalk Tile Lines
+==========================
+
+Each tile is 16 scanlines in height so 16 scanwalk lines is equivalent to what
+can be called a scanwalk 'tile line'.
+
+  .---left update tile
+  |
+  |                    .---playfield tiles  .---scroll column tile
+  |                    |                    |
+  | .-------------------------------------. | .---right update column tile
+  | |                                     | | |
+  v v                                     v v v
+ |8|                   160                 |8|8|<---.
+ |8|                   160                 |8|8|    |
+ |8|                   160                 |8|8|    |
+ |8|                   160                 |8|8|    |
+ |8|                   160                 |8|8|    |
+ |8|                   160                 |8|8|    |
+ |8|                   160                 |8|8|    |
+ |8|                   160                 |8|8|    |---16 scanwalk lines
+ |8|                   160                 |8|8|    |    1 scanwalk tile line
+ |8|                   160                 |8|8|    |
+ |8|                   160                 |8|8|    |
+ |8|                   160                 |8|8|    |
+ |8|                   160                 |8|8|    |
+ |8|                   160                 |8|8|    |
+ |8|                   160                 |8|8|    |
+ |8|                   160                 |8|8|<---'
+
+  184*16 = 2944 bytes
+
+Conceptually, a scanwalk tile line will be described in this way:
+
+  .---left update column tile
+  |
+  |                    .---20 playfield     .---scroll column tile
+  |                    |      tiles         |
+  | .-------------------------------------. | .---right update column tile
+  | |                                     | | |
+  v v                                     v v v
+ |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|<---1 scanwalk tile line
+
+  184*16 = 2944 bytes
+
+
+====================
+Topic:Minimal Buffer
+====================
+
+For our example scanwalk layout, 160 vertical screen lines is equivalent to
+10 tile lines to comprise the minimal buffer space required.
+
+  .---left update column
+  |
+  |                    .---20 playfield     .---scroll column
+  |                    |      columns       |
+  | .-------------------------------------. | .---right update column
+  | |                                     | | |
+  v v                                     v v v
+ |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|<---.
+ |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|    |
+ |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|    |
+ |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|    |
+ |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|    |--- 10 scanwalk tile lines
+ |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|    |     1 scanwalk screen
+ |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|    |
+ |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|    |
+ |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|    |
+ |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|<---'
+
+  10*2944 = 29440 bytes
+
+
+====================
+Topic:Overflow Bytes
+====================
+
+With just the minimal buffer the only fine-scrolling available would be the
+ability to scroll through the pixels of the scroll column and back again to the
+starting position. The display would start at pixel 0 of the first playfield
+column. This would be x-position 0. Display continues to the last pixel at
+display end. Update columns are hidden as well as the scroll column.
+
+  .---hidden                              .---display end
+  |                                       |
+  | .---display start                     | .-.---hidden
+  | |                                     | | |
+  v v                                     v v v
+ |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|<---.
+ |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|    |
+ |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|    |
+ |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|    |
+ |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|    |--- 10 tile lines
+ |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|    |
+ |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|    |
+ |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|    |
+ |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|    |
+ |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|<---'
+
+When fine scrolling is activated the hardware scroll features of the STE
+shifter are used to offset the starting pixel within the playfield tile line
+column. This utilizes the fact that the scroll column is populated so after
+moving to x-position 1, the display would be changed and display would start
+at pixel 1 of the first playfield tile column and display ends with pixel 0 of
+the scroll column.
+
+  .---hidden
+  |
+  | .---display start at pixel 1            .---display end at pixel 0
+  | |                                       |
+  | |                                       | .---hidden
+  | |                                       | |
+  v v                                       v v
+ |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|<---.
+ |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|    |
+ |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|    |
+ |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|    |
+ |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|    |--- 10 tile lines
+ |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|    |
+ |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|    |
+ |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|    |
+ |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|    |
+ |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|<---'
+
+Every 16-pixels of fine-scroll there is need to perform a 'coarse scroll'
+where the actual screen address is incremented by 8 bytes and the hardware
+scroll of the shifter reset to 0. This method is used to continue the illusion
+of infinte scrolling. Consider the case where the x-position has changed to 16.
+
+  .---don't care
+  |
+  | .---hidden
+  | |
+  | | .---display start
+  | | |
+  v v v
+ |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|<---.
+ |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|    |
+ |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|    |
+ |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|    |
+ |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|    |--- 10 tile lines
+ |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|    |
+ |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|    |
+ |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|    |
+ |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|    |
+ |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|<---'
+                                            ^ ^ ^
+                                            | | |
+                              display end---' | |
+                                              | |
+                                     hidden---' |
+                                                '---!!MEMORY OVERFLOW!!
+
+In this situation, 8 more bytes are required at the end of the scanwalk minimal
+buffer to use for the end of last update column tile scanline past what had been
+allocated. This is the essence of the scanwalking method.
+
+Focusing in on the first and last scanwalk lines of the scanwalk minimal buffer
+(in byte form) the need for the extra 8 bytes can be seen.
+
+   .---don't care
+   |
+   | .---left update column
+   | |
+   | |                    .---playfield
+   | |                    |
+   | | .-------------------------------------.
+   | | |                                     |
+   | v v                                     v
+  |-|8|                  160                  |8|8|<---first scanwalk line
+                         ...
+               (interior scanwalk lines)
+                         ...
+    |8|                  160                  |8|X|<---last scanwalk line
+                                               ^ ^
+                                               | |
+                               scroll column---' |
+                                                 |
+                           right update column---'---!!EXTRA 8 BYTES NEEDED!!
+
+This implies that every extra column of the level map beyond the initial display
+requires 8 additional bytes added to the scanwalk minimal buffer. Note that the
+scroll column is initially filled with tiles from the level map to enable fine-
+scrolling so must be accounted for. With a playfield width of 20 tiles and
+1 scroll column, the overflow bytes required for a level map 144 tiles wide
+would be:
+
+  (144-(20+1))*8 = 984 overflow bytes
+
+
+======================
+Topic:Playfield Buffer
+======================
+
+Adding the scanwalk overflow bytes to the scanwalk minimal buffer size results
+in the total scanwalk playfield buffer size needed for scanwalk infinite scroll
+of a level map with 144 tiles at 10 vertical tiles per screen.
+
+  .---left update column
+  |
+  |                    .---20 playfield     .---scroll column
+  |                    |      columns       |
+  | .-------------------------------------. | .---right update column
+  | |                                     | | |
+  v v                                     v v v
+ |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|<---.
+ |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|    |
+ |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|    |
+ |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|    |
+ |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|    |--- 10 scanwalk tile lines
+ |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|    |     1 scanwalk screen
+ |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|    |
+ |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|    |
+ |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|    |
+ |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|<---'
+ |...additional 984 bytes|
+
+  10*2944+984 = 30424 bytes
+
+Of course scanwalk scrolling doesn't mandate 10 tiles vertically or really
+any specific screen height. However, the 'phase scrolling' derivative which
+is the subject of this project does require the screen to be a multiple of
+16x16 tiles. And so any screen height from 1-12 tiles would work with this
+method but each would require different buffer sizes.
+
+Below are some examples with a level map of 144 tiles wide:
+
+                            (bi-directional)
+ Screen Height | Vertical Tiles | Level Map Width | Scanwalk Buffer Size
+     152               9                144             27480 bytes
+     160              10                144             30424 bytes
+     176              11                144             33368 bytes
+     192              12                144             36312 bytes
+
+The above requirements are for bi-directional horizontal scrolling. For
+left-to-right or uni-directional horizontal scrolling the left update column
+is eliminated requiring less memory as reflected in the table below:
+
+                            (uni-directional)
+ Screen Height | Vertical Tiles | Level Map Width | Scanwalk Buffer Size
+     152               9                144             26328 bytes
+     160              10                144             29144 bytes
+     176              11                144             31960 bytes
+     192              12                144             34776 bytes
+
+
+=====================
+Topic:Phase Scrolling
+=====================
+
+Phase scrolling as presented here is an application of the scanwalk tile-based
+'infinite' horizontal scrolling technique for the Atari STE which attempts to
+smooth out the drawing of update column data while also allowing changes in
+scrolling speed. To this end, phase scrolling requires playfield heights based
+on multiples of 16x16 graphics tiles. These 4-plane graphics block build the
+playfield display based on a level map which indicates which tile is to be
+used in which playfield position.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+See Topic:Infinite Scrolling
+See Topic:Scanwalk Scrolling
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Hence, a playfield with 160 vertical display lines would be 10 tiles high
+(as each tile is 16 lines in height). This method is not limited to 10 tiles
+vertically, that value is just what this project is based around.
+
+The idea behind this implementation is that of having 16 fine-scroll intervals
+availble to copy and 'fill-in' data into the update columns before a coarse
+scroll and screen address change. Having screen heights at a fixed multiple of
+16 means that each fine scroll interval (i.e. phase) has a fixed number of lines
+to copy into the update buffer. For example, with a 160 line screen, each phase
+will need to only fill in 10 lines of the update column - called a phase block.
+This results in a consistent workload and therefore helps to smooth out the cpu
+time required for completing the entire update column.
+
+This concept also allows a method of speed changes to work smoothly around the
+core idea. There are 8 speeds in phase scrolling: 1,2,4,8,-1,-2,-4 and -8
+(with 0 being no scroll) and each speed reflects the number of pixels which
+will be fine-scrolled. Using these discrete speed values, which all go into 16
+themselves allows the phases to be scaled up and down with the phase blocks 
+rising and falling in height in-phase with speed changes.
+
+There are several concepts to be considered regarding STE phase scrolling.
+Each will be described in the following topics.
+
+
+============
+Topic:Phases
+============
+
+Phases are the part of the fine scrolling interval where the work of copying
+tile graphics data into the update column for the next coarse scroll is done in
+such a way that the work is composed of consistent and even segments called
+phase blocks.
+~~~~~~~~~~~~~~~~~~~~~~~
+See Topic:Memory Layout
+~~~~~~~~~~~~~~~~~~~~~~~
+
+Below is a diagram of the phases and their constituent phase block with respect
+to the available speeds based playfield height of 160 lines or 10 tiles. For 
+speed 1, phase blocks are 10 lines each phase so that when the last phase is
+complete the update column is completely filled and ready to be used for the
+visible playfield. This happens in sync with the fine-scrolling since there are
+16 fine-scroll positions and 16 phases. Negative speeds are handled the same as
+their positive counterparts.
+
+When increasing the speed, the work involved filling the update column per phase
+is naturally higher and so the phase block height also increases. For speed 2,
+20 lines of tile graphics data have to be copied per phase and the number of
+phases to complete the update column is reduced to 8 since we are now moving at
+twice the speed. Speed 4 needs 40 lines filled-in per phase with 4 phases and
+speed 8 needs 80 lines per phase with only two phase per update column fill.
+For this project the phase blocks copied to the update column with the STE
+blitter chip in hog mode to optimize speed.
+
+    speed 1              speed 2              speed 4              speed 8
+
+  .----update column tiles
+  |
+  |    .----lines drawn
+  |    |
+  |    |    .----phase
+  v    v    v
+ uct  ldr phase       uct  ldr phase       uct  ldr phase       uct  ldr phase
++---+     +---+      +---+     +---+      +---+     +---+      +---+     +---+
+|   |     |   |      |   |     |   |      |   |     |   |      |   |     |   |
+| 0 |-->10| 0 |      |   |     | 0 |      |   |     | 0 |      |   |     | 0 |
+|   |     |   |      |   |     |   |      |   |     |   |      |   |     |   |
+|   |     +---+      | 0 |-->16|   |      | 0 |-->16|   |      | 0 |-->16|   |
+                     |   |     |   |      |   |     |   |      |   |     |   |
+|   |     +---+      |   |     |   |      |   |     |   |      |   |     |   |
+| 0 |-->6 |   |      |   |     |   |      |   |     |   |      |   |     |   |
++---+     | 1 |      +---+     |   |      |   |     |   |      |   |     |   |
+| 1 |-->4 |   |      | 1 |-->4 |   |      +---+     |   |      +---+     |   |
+|   |     +---+      |   |     +---+      |   |     |   |      |   |     |   |
+                                          |   |     |   |      |   |     |   |
+|   |     +---+      |   |     +---+      |   |     |   |      |   |     |   |
+|   |     |   |      |   |     |   |      | 1 |-->16|   |      | 1 |-->16|   |
+| 1 |-->10| 2 |      |   |     | 2 |      |   |     |   |      |   |     |   |
+|   |     |   |      | 1 |-->12|   |      |   |     |   |      |   |     |   |
+|   |     +---+      |   |     |   |      |   |     |   |      |   |     |   |
+                     |   |     |   |      |   |     |   |      |   |     |   |
+|   |     +---+      +---+     |   |      +---+     |   |      +---+     |   |
+| 1 |-->2 |   |      |   |     |   |      |   |     |   |      |   |     |   |
++---+     | 3 |      | 2 |-->8 |   |      | 2 |-->8 |   |      |   |     |   |
+| 2 |-->8 |   |      |   |     |   |      |   |     |   |      |   |     |   |
+|   |     +---+      |   |     +---+      |   |     +---+      |   |     |   |
+                                                               | 2 |-->16|   |
+|   |     +---+      |   |     +---+      |   |     +---+      |   |     |   |
+| 2 |-->8 |   |      |   |     |   |      |   |     |   |      |   |     |   |
++---+     | 4 |      | 2 |-->8 | 4 |      | 2 |-->8 | 4 |      |   |     |   |
+| 3 |-->2 |   |      |   |     |   |      |   |     |   |      |   |     |   |
+|   |     +---+      +---+     |   |      +---+     |   |      +---+     |   |
+                     |   |     |   |      |   |     |   |      |   |     |   |
+|   |     +---+      |   |     |   |      |   |     |   |      |   |     |   |
+|   |     |   |      | 3 |-->12|   |      |   |     |   |      |   |     |   |
+| 3 |-->10| 5 |      |   |     |   |      | 3 |-->16|   |      | 3 |-->16|   |
+|   |     |   |      |   |     |   |      |   |     |   |      |   |     |   |
+|   |     +---+      |   |     +---+      |   |     |   |      |   |     |   |
+                                          |   |     |   |      |   |     |   |
+|   |     +---+      |   |     +---+      |   |     |   |      |   |     |   |
+| 3 |-->4 |   |      | 3 |-->4 |   |      +---+     |   |      +---+     |   |
++---+     | 6 |      +---+     | 6 |      |   |     |   |      |   |     |   |
+| 4 |-->6 |   |      |   |     |   |      |   |     |   |      |   |     |   |
+|   |     +---+      |   |     |   |      |   |     |   |      |   |     |   |
+                     |   |     |   |      |   |     |   |      |   |     |   |
+|   |     +---+      | 4 |-->16|   |      | 4 |-->16|   |      | 4 |-->16|   |
+|   |     |   |      |   |     |   |      |   |     |   |      |   |     |   |
+| 4 |-->10| 7 |      |   |     |   |      |   |     |   |      |   |     |   |
+|   |     |   |      |   |     |   |      |   |     |   |      |   |     |   |
++---+     +---+      +---+     +---+      +---+     +---+      +---+     +---+
+
++---+     +---+      +---+     +---+      +---+     +---+      +---+     +---+
+|   |     |   |      |   |     |   |      |   |     |   |      |   |     |   |
+| 5 |-->10| 8 |      |   |     | 8 |      |   |     | 8 |      |   |     | 8 |
+|   |     |   |      |   |     |   |      |   |     |   |      |   |     |   |
+|   |     +---+      | 5 |-->16|   |      | 5 |-->16|   |      | 5 |-->16|   |
+                     |   |     |   |      |   |     |   |      |   |     |   |
+|   |     +---+      |   |     |   |      |   |     |   |      |   |     |   |
+| 5 |-->6 |   |      |   |     |   |      |   |     |   |      |   |     |   |
++---+     | 9 |      +---+     |   |      |   |     |   |      |   |     |   |
+| 6 |-->4 |   |      | 6 |-->4 |   |      +---+     |   |      +---+     |   |
+|   |     +---+      |   |     +---+      |   |     |   |      |   |     |   |
+                                          |   |     |   |      |   |     |   |
+|   |     +---+      |   |     +---+      |   |     |   |      |   |     |   |
+|   |     |   |      |   |     |   |      | 6 |-->16|   |      | 6 |-->16|   |
+| 6 |-->10|10 |      |   |     |10 |      |   |     |   |      |   |     |   |
+|   |     |   |      | 6 |-->12|   |      |   |     |   |      |   |     |   |
+|   |     +---+      |   |     |   |      |   |     |   |      |   |     |   |
+                     |   |     |   |      |   |     |   |      |   |     |   |
+|   |     +---+      +---+     |   |      +---+     |   |      +---+     |   |
+| 6 |-->2 |   |      |   |     |   |      |   |     |   |      |   |     |   |
++---+     |11 |      | 7 |-->8 |   |      | 7 |-->8 |   |      |   |     |   |
+| 7 |-->8 |   |      |   |     |   |      |   |     |   |      |   |     |   |
+|   |     +---+      |   |     +---+      |   |     +---+      |   |     |   |
+                                                               | 7 |-->16|   |
+|   |     +---+      |   |     +---+      |   |     +---+      |   |     |   |
+| 7 |-->8 |   |      |   |     |   |      |   |     |   |      |   |     |   |
++---+     |12 |      | 7 |-->8 |12 |      | 7 |-->8 |12 |      |   |     |   |
+| 8 |-->2 |   |      |   |     |   |      |   |     |   |      |   |     |   |
+|   |     +---+      +---+     |   |      +---+     |   |      +---+     |   |
+                     |   |     |   |      |   |     |   |      |   |     |   |
+|   |     +---+      |   |     |   |      |   |     |   |      |   |     |   |
+|   |     |   |      | 8 |-->12|   |      |   |     |   |      |   |     |   |
+| 8 |-->10|13 |      |   |     |   |      | 8 |-->16|   |      | 8 |-->16|   |
+|   |     |   |      |   |     |   |      |   |     |   |      |   |     |   |
+|   |     +---+      |   |     +---+      |   |     |   |      |   |     |   |
+                                          |   |     |   |      |   |     |   |
+|   |     +---+      |   |     +---+      |   |     |   |      |   |     |   |
+| 8 |-->4 |   |      | 8 |-->4 |   |      +---+     |   |      +---+     |   |
++---+     |14 |      +---+     |14 |      |   |     |   |      |   |     |   |
+| 9 |-->6 |   |      |   |     |   |      |   |     |   |      |   |     |   |
+|   |     +---+      |   |     |   |      |   |     |   |      |   |     |   |
+                     |   |     |   |      |   |     |   |      |   |     |   |
+|   |     +---+      | 9 |-->16|   |      | 9 |-->16|   |      | 9 |-->16|   |
+|   |     |   |      |   |     |   |      |   |     |   |      |   |     |   |
+| 9 |-->10|15 |      |   |     |   |      |   |     |   |      |   |     |   |
+|   |     |   |      |   |     |   |      |   |     |   |      |   |     |   |
++---+     +---+      +---+     +---+      +---+     +---+      +---+     +---+
+
+For another way to look at phases and phase blocks, the following tables break
+down the relationship between the fine-scroll intervals and the phases. Again
+with a 10 tile high 160 line playfield screen.
+
++-----------------------------------------------------------------------------+
+| speed = 1            x-pos   0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 |
+|                              |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | |
+| phase 0  --------------------'  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | |
+| phase 1  -----------------------'  |  |  |  |  |  |  |  |  |  |  |  |  |  | |
+| phase 2  --------------------------'  |  |  |  |  |  |  |  |  |  |  |  |  | |
+| phase 3  -----------------------------'  |  |  |  |  |  |  |  |  |  |  |  | |
+| phase 4  --------------------------------'  |  |  |  |  |  |  |  |  |  |  | |
+| phase 5  -----------------------------------'  |  |  |  |  |  |  |  |  |  | |
+| phase 6  --------------------------------------'  |  |  |  |  |  |  |  |  | |
+| phase 7  -----------------------------------------'  |  |  |  |  |  |  |  | |
+| phase 8  --------------------------------------------'  |  |  |  |  |  |  | |
+| phase 9  -----------------------------------------------'  |  |  |  |  |  | |
+| phase 10 --------------------------------------------------'  |  |  |  |  | |
+| phase 11 -----------------------------------------------------'  |  |  |  | |
+| phase 12 --------------------------------------------------------'  |  |  | |
+| phase 13 -----------------------------------------------------------'  |  | |
+| phase 14 --------------------------------------------------------------'  | |
+| phase 15 -----------------------------------------------------------------' |
++-----------------------------------------------------------------------------+
+| At this speed, fine-scroll changes are at 1 pixel intervals.                |
+| Here every position change will draw 1/16 of the update column.             |
+| There are 16 phases and phase blocks are 10 lines high.                     |
++-----------------------------------------------------------------------------+
+
++-----------------------------------------------------------------------------+
+| speed = 2            x-pos   0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 |
+|                              |     |     |     |     |     |     |     |    |
+| phase 0  --------------------'     |     |     |     |     |     |     |    |
+| phase 1                            |     |     |     |     |     |     |    |
+| phase 2  --------------------------'     |     |     |     |     |     |    |
+| phase 3                                  |     |     |     |     |     |    |
+| phase 4  --------------------------------'     |     |     |     |     |    |
+| phase 5                                        |     |     |     |     |    |
+| phase 6  --------------------------------------'     |     |     |     |    |
+| phase 7                                              |     |     |     |    |
+| phase 8  --------------------------------------------'     |     |     |    |
+| phase 9                                                    |     |     |    |
+| phase 10 --------------------------------------------------'     |     |    |
+| phase 11                                                         |     |    |
+| phase 12 --------------------------------------------------------'     |    |
+| phase 13                                                               |    |
+| phase 14 --------------------------------------------------------------'    |
+| phase 15                                                                    |
++-----------------------------------------------------------------------------+
+| At this speed, fine-scroll changes are at 2 pixel intervals.                |
+| Here every position change will draw 1/8 of the update column.              |
+| There are 8 phases and phase blocks are 20 lines high.                      |
++-----------------------------------------------------------------------------+
+
++-----------------------------------------------------------------------------+
+| speed = 4            x-pos   0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 |
+|                              |           |           |           |          |
+| phase 0  --------------------'           |           |           |          |
+| phase 1                                  |           |           |          |
+| phase 2                                  |           |           |          |
+| phase 3                                  |           |           |          |
+| phase 4  --------------------------------'           |           |          |
+| phase 5                                              |           |          |
+| phase 6                                              |           |          |
+| phase 7                                              |           |          |
+| phase 8  --------------------------------------------'           |          |
+| phase 9                                                          |          |
+| phase 10                                                         |          |
+| phase 11                                                         |          |
+| phase 12 --------------------------------------------------------'          |
+| phase 13                                                                    |
+| phase 14                                                                    |
+| phase 15                                                                    |
++-----------------------------------------------------------------------------+
+| At this speed, fine-scroll changes are at 4 pixel intervals.                |
+| Here every position change will draw 1/4 of the update column.              |
+| There are 4 phases and phase blocks are 40 lines high.                      |
++-----------------------------------------------------------------------------+
+
++-----------------------------------------------------------------------------+
+| speed = 8            x-pos   0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 |
+|                              |                       |                      |
+| phase 0  --------------------'                       |                      |
+| phase 1                                              |                      |
+| phase 2                                              |                      |
+| phase 3                                              |                      |
+| phase 4                                              |                      |
+| phase 5                                              |                      |
+| phase 6                                              |                      |
+| phase 7                                              |                      |
+| phase 8  --------------------------------------------'                      |
+| phase 9                                                                     |
+| phase 10                                                                    |
+| phase 11                                                                    |
+| phase 12                                                                    |
+| phase 13                                                                    |
+| phase 14                                                                    |
+| phase 15                                                                    |
++-----------------------------------------------------------------------------+
+| At this speed, fine-scroll changes are at 8 pixel intervals.                |
+| Here every position change will draw 1/2 of the update column.              |
+| There are 2 phases and phase blocks are 80 lines high.                      |
++-----------------------------------------------------------------------------+
+
+
+===================
+Topic:Normalization
+===================
+
+Phase scrolling has a few variables that can be normalized for smaller and more
+efficient code.  Normalization in the sense of altering the natural state of
+some variables that are common to the method but may have different aspects
+based on run-time conditions.
+
+The three values that are normalized are:
+ - speed
+ - update column orientation
+ - phase
+
+These are discussed in the following topics.
+
+
+=======================
+Topic:Normalizing Speed
+=======================
+
+Speed is normalized to an absolute value since the phase processing is the same
+whether the speed is positive or negative. Speed polarity *can* determine which
+update column is used, but only on a column change which would be the result of
+a coarse scroll. A separate coarse scroll flag is used for this purpose. During
+inter-column speed changes this does not come into play.
+~~~~~~~~~~~~~~~~~~~~~~~
+See Topic:Speed Changes
+~~~~~~~~~~~~~~~~~~~~~~~
+
+ Ex) natural speed       normalized speed
+          1                     1
+          2                     2
+          4                     4
+          8                     8
+         -8                     8
+         -4                     4
+         -2                     2
+         -1                     1
+
+
+=============================
+Topic:Normalizing Orientation
+=============================
+
+The update column orientation is normalized to always use a 0->15 phase block
+progression. For understanding why this might be needed, here are examples with
+both right and left scrolling.
+
+Rightward scrolling causes the x-position values to increase and so also the
+fine-scroll values increase as well. For speed 1 the progression goes as this:
+-------------------------------------------------------
+x-position 0 --> construct update column phase block 0
+x-position 1 --> construct update column phase block 1
+...
+...
+x-position 14 --> construct update column phase block 14
+x-position 15 --> construct update column phase block 15
+--------------------------------------------------------
+
+Leftward scrolling causes the x-position values to decrease and so also the
+fine-scroll values decrease as well. So when going from one column to a
+previous one at speed 1, the progression goes like this:
+--------------------------------------------------------
+x-position 15 --> construct update column phase block 15
+x-position 14 --> construct update column phase block 14
+...
+...
+x-position 1 --> construct update column phase block 1
+x-position 0 --> construct update column phase block 0
+--------------------------------------------------------
+
+So by default, the construction of the update column progresses from 0->15
+when scrolling right and from 15->0 when scrolling left. This requires some
+additional code to handle the differences especially with regards to gap
+detection and updating the fill gauge.
+~~~~~~~~~~~~~~~~~~~~~~~
+See Topic:Speed Changes
+See Topic:Fill Gauge
+~~~~~~~~~~~~~~~~~~~~~~~
+
+Ex)
+   screen pixels
+ | . . . . . . . . . . . . . . . . | . . . . . . . . . . . . . . . . |
+
+             .--- scroll left <----|----> scroll right ---.
+             |                                            |
+             v                                            v
+    left update column                            right update column
+           .--.                                         .--.
+           | 0|                    builds from top down | 0|
+           | 1|                                       | | 1|
+           | 2|                                       | | 2|
+           | 3|                                       | | 3|
+           | 4|                (natural)              | | 4|
+           | 5|                                       | | 5|
+           | 6|                                       v | 6|
+           | 7|                                         | 7|
+           | 8|                                         | 8|
+           | 9| ^                                       | 9|
+           |10| |                                       |10|
+           |11| |                                       |11|
+           |12| |                                       |12|
+           |13| |                                       |13|
+           |14| |                                       |14|
+           |15| builds from bottom up                   |15|
+           '--'                                         '--'
+
+             .--- scroll left <----|----> scroll right ---.
+             |                                            |
+             v                                            v
+    left update column                            right update column
+           .--.                                          .--.
+           | 0| .-------- builds from top down --------. | 0|
+           | 1| |                                      | | 1|
+           | 2| |                                      | | 2|
+           | 3| |                                      | | 3|
+           | 4| |             (normalized)             | | 4|
+           | 5| |                                      | | 5|
+           | 6| v                                      v | 6|
+           | 7|                                          | 7|
+           | 8|                                          | 8|
+           | 9|                                          | 9|
+           |10|                                          |10|
+           |11|                                          |11|
+           |12|                                          |12|
+           |13|                                          |13|
+           |14|                                          |14|
+           |15|                                          |15|
+           '--'                                          '--'
+
+
+=======================
+Topic:Normalizing Phase
+=======================
+
+Normalizing the phase is helpful in situations where the speed changes from 1
+to a higher speed. Since speed 1 can be any phase 0-15 and is equal to the
+current x-position's fine-scroll value, then when a speed increase happens, the
+resulting x-position can cause an out-of-phase condition. Normalization brings
+the x-position back in-phase with regards to the speed no matter the value.
+
+Ex)
+----------------------------------------------------------------
+speed 1
+valid phase blocks -------------.  (0-15)
+                                |
+                                v
+                  .-+-+-+-+-+-+-+-+-+-+-+-+-+-+-.
+                  | | | | | | | | | | | | | | | |
+                  v v v v v v v v v v v v v v v v
+  screen pixels | . . . . . . . . . . . . . . . . |
+                      ^
+                      |
+    x-position 3 -----+
+                      |
+natural phase block---'   (natural and in-phase)
+----------------------------------------------------------------
+
+----------------------------------------------------------------
+speed increases to 4
+valid phase blocks -----------.  (0, 4, 8, 12)
+                              |
+                              v
+                  .-------+-------+-------.
+                  |       |       |       |
+                  v       v       v       v
+  screen pixels | . . . . . . . . . . . . . . . . |
+                                ^
+                                |
+    x-position 7 ---------------+
+                                |
+natural phase block ------------'  (natural and out-of-phase)
+
+Here we see with the speed increase to 4, the natural phase
+block changes to 7 which is not an allowed phase for that speed.
+Although it lies 'within' the boundary of the valid phase block
+it is 'out-of-phase'.
+----------------------------------------------------------------
+
+----------------------------------------------------------------
+speed increases to 4
+valid phase blocks -----------.  (0, 4, 8, 12)
+                              |
+                              v
+                  .-------+-------+-------.
+                  |       |       |       |
+                  v       v       v       v
+  screen pixels | . . . . . . . . . . . . . . . . |
+                          ^     ^
+                          |     |
+    x-position 7 ---------|-----+
+                          |
+      normalized phase ---' (normalized and in-phase)
+	
+Here the phase has been normalizing and this results in an
+'in-phase' condition.
+----------------------------------------------------------------
+
+
+=========================
+Topic:Directional Changes
+=========================
+
+There are two types of directional changes in phase scrolling. The first is
+simply a change of sign for the speed value and is separate from the actual
+scroll direction. Consider this sequence:
+
+--------------------------------------
+speed = 0
+scroll direction = rightward (default)
+
+  .---x-position 0
+  v
+| . . . . . . . . . . . . . . . . |
+--------------------------------------
+                 |
+                 v
+--------------------------------------
+speed = 1
+scroll direction = rightward
+
+    .---new x-position 1
+    v
+| . . . . . . . . . . . . . . . . |
+--------------------------------------
+                 |
+                 v
+--------------------------------------
+speed = -1
+scroll direction = rightward
+
+  .---new x-position 0
+  v
+| . . . . . . . . . . . . . . . . |
+--------------------------------------
+
+You might ask why the scroll direction is still rightward even though the
+x-position has moved leftward due to the negative speed. The answer is that this
+is a 'inter-column' x-position change and so is detached from scroll direction
+changes. So even though the x-position went left, we are still in the same
+screen column and so will still use the current update column which is the
+right-hand one.
+
+In phase scrolling the only time the scroll direction value might change is
+when an actual column change occurs. And if the column change causes a scroll
+direction value change, the update column that is used will also be changed.
+
+Key to understanding this is to know that when the playfield is first drawn if
+the starting column is other than the first or last one, then *both* the left
+update column and scroll column are filled in so that scrolling may happen in
+either direction at the start.
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+See Topic:Playfield Buffer
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+A sequence is presented to futher illustrate the idea:
+
+--------------------------------------------------------------------------------
+step 1 - initial playfield draw - starting tile 12 speed 1
+
+At start we need to display tile columns 12-32 from the level map.
+Shown with accompanying update and scroll columns.
+
+ |u| playfield tile columns 12-32 |s|u|
+
+Because we don't know ahead of time which way scrolling will be initiated at
+the start we therefore populate both the left update column and the scroll
+column during this initial screen draw. This effectively makes the left update
+column a pseudo-scroll column for the start.
+
+The direction value is set to RIGHT as the default which implies the right
+update column will be used.
+
+  .---tile column 11 filled        .---tile column 33 filled
+  |                                |
+  v                                v
+ |s| playfield tile columns 12-32 |s|u|
+    ^                                ^
+    |                                |
+    |                                '---right update column used
+    |
+    '---display start at pixel 0 of column 12
+  |
+  v
+ ---
+  | now one of two things can happen
+ .-.
+ | |    ------------------------------------------------------------------------
+ | '--> step 2a - immediate move to the left - tile column 11
+ |	 
+ |      With an immediate move to the left from pixel 0 of tile 12 we have moved
+ |      into column 11 as the first column display on-screen. Since this was
+ |      filled during the initial draw it is no problem. The screen address
+ |      pointer is decremented by 8 and the scroll value is set to 15 as we are
+ |      at speed -1.
+ |      
+ |      Because there was a column change the speed is checked to see if it was
+ |      negative. If it was, then the scroll direction is changed to LEFT which
+ |      causes the left update column to used.
+ |      
+ |       .---change to use left update column
+ |       |
+ |       v
+ |      |u| playfield tile columns 11-31 |s|u|
+ |         ^                              ^
+ |         |                              |
+ |         |                              '---contains intact data for column 32
+ |         |
+ |         '---display start from pixel 15 of column 11
+ |      
+ |      The left update column will then continue to used during the update
+ |      intervals as long as there is no column changes, irregardless of
+ |      inter-column directional changes due to postive/negative speeds.
+ |      ------------------------------------------------------------------------
+ |
+ |      ------------------------------------------------------------------------
+ '----> step 2b - immediate move to the right tile column 12
+
+        If instead of moving left at the start, there was an immediate move
+        right, then the situation is only that we have moved 1 pixel in the same
+	  column so the direction will stay RIGHT and 1 pixel from the initial
+	  scroll column will be visible on the screen. Also, the right update
+	  column will be used up until a column change is detected in which case
+	  a check will be made to see if the speed was positive or negative when
+	  the coarse scroll occurred.
+       
+                                          .---pixel 1 of scroll column visible
+                                          |
+                                          v
+        |u| playfield tile columns 12-32 |s|u|
+           ^                                ^
+           |                                |
+           |                                '---right update column used
+           |
+           '---display will be from pixel 1 of column 12
+	  ------------------------------------------------------------------------
+
+
+===================
+Topic:Speed Changes
+===================
+
+Increasing speed from speed 1 may result in an out-of-phase condition due to
+the phase jump landing in the middle of the next phase but not exactly at the
+start. This out-of-phase condition is corrected using normalization.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+See Topic:Normalizing Phase
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Another out-of-phase condition that can result from increasing speeds is one in
+which 'gaps' can appear in the update column. These gaps need to be addressed to
+continue the seamless illusion of 'infinite' scrolling.
+
+Such gaps only appear if the speed has been increased and after a one-time
+mending, the phases will then copy phase block to the update column at the new
+speed as normal. Note that not every speed increase will cause a gap. Further,
+there are 2 slightly different out-of-phase conditions possible, one which will
+require 'phase compensation' and the other 'phase completion'.
+
+Both are described below.
+
+==================
+Phase Compensation
+==================
+
+Consider the following example to understand how and why gaps could occur that
+require phase compensation. The example present a series of movements possible
+in a phase scroll sequence involving speed changes and their outcomes.
+
+----------------------------------------------------------------
+step 1 - start
+
+             speed = 1
+             phase = 0
+        x-position = 0
+
+  .---phase
+  .---x-position
+  v
+| x . . . . . . . . . . . . . . . |
+
+Here the sequence begins at speed 1 and phase is aligned.
+The 'x' represents the portion of the update column that is
+filled during the phase.
+----------------------------------------------------------------
+            |
+	      v
+----------------------------------------------------------------
+step 2 - movement to the right
+
+             speed = 1
+             phase = 1
+        x-position = 1
+
+    .---phase
+    .---x-position
+    v
+| x x . . . . . . . . . . . . . . |
+
+After fine-scrolling 1 pixel to the right at speed 1, phase is
+still aligned. At this point 2 phase blocks have copied into
+the update column.
+----------------------------------------------------------------
+            |
+	      v
+----------------------------------------------------------------
+step 3 - speed increase to 4
+
+             speed = 4
+             phase = 4
+        x-position = 5
+
+    .---previous phase
+    |     .---phase
+    |     | .---x-position
+    v     v v
+| x x * * x x x x . . . . . . . . |
+      |   |
+      '---'
+        '---gap
+
+Here the speed has increased to 4 and the x-position is now 5
+and the normalized phase is 4 which will result in phase blocks
+4-7 being filled. However, phase blocks 2-3 have been skipped
+over and this has resulted in a out-of-phase gap represented by
+the '*' symbols. These must be identified and filled in along
+with the current phase block 4.
+
+This is called 'phase compensation'.
+
+          .---phase
+          | .---x-position
+          v v
+| x x x x x x x x . . . . . . . . |
+
+After phase compensation, the update column is filled and is
+in-phase with the new speed.
+----------------------------------------------------------------
+
+
+======================
+Topic:Phase Completion
+======================
+
+This scenario describes out an out-of-phase condition which can occur that
+requires 'phase completion'. This can happen when an x-position is near to the
+point where a coarse scroll is required when a speed increase happens.
+
+---------------------------------------------------------------------
+step 1 - start
+
+             speed = 1
+             phase = 13
+        x-position = 13
+
+                            .----phase
+                            .----x-position
+                            v
+| x x x x x x x x x x x x x x . . |
+
+Here we start at x-position 13 and phase 13. Phase blocks 0-13
+are filled in.
+---------------------------------------------------------------------
+            |
+	      v
+---------------------------------------------------------------------
+step 2 - speed increase to 4
+
+             speed = 4
+             phase = 0  (coarse scroll)
+        x-position = 17
+
+                            .---previous phase
+                            |       .---phase
+                            |       | .---x-position                
+                            v       v v
+| x x x x x x x x x x x x x x * * | x x x x . . . . . . . . . . . . |
+                              ^   ^
+  (screen address 0)          |   | (screen address 8)
+                              '---'
+                                |
+                                '---gap
+
+Here the speed has increased to 4 and the x-position is now 17.
+However, this x-position increase has resulted in two things.
+First, it has caused a coarse scroll into a new screen address.
+This means the phase is now reset back to 0. It also means the old
+update column we were working on filling is now the scroll column
+and can be visible on the screen as the fine scroll continues.
+We can see the speed increase has resulted in a out-of-phase gap
+at the end of the old update column. This gap will contain invalid
+tile data and will be visible as 'garbage' on the screen. This gap
+must therefore be filled in along with the normal phase block
+during this phase.
+
+This is called 'phase completion'.
+
+                                    .---phase
+                                    | .---x-position
+                                    v v
+| x x x x x x x x x x x x x x x x | x x x x . . . . . . . . . . . . |
+  (screen address 0)                (screen address 8)
+
+After phase completion, the scroll column is corrected and the update
+column is filled and in-phase with the new speed.
+---------------------------------------------------------------------
+
+================
+Topic:Fill Gauge
+================
+
+As seen in the previous topics, speed increases can sometimes cause a momentary
+out-of-phase condition which must to be corrected to continue the illusion of
+infinite scrolling.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+See Topic:Phase Compensation
+See Topic:Phase Completion
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+It is also true that inter-column directional changes can occur involving
+positive and negative speed changes.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+See Topic:Directional Changes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+These inter-column directional changes could lead to a situation where a gap
+might appear to exist when in fact due to previous inter-column movement the
+phase blocks comprising the gap were actually filled in and valid.
+
+Consider this example sequence:
+----------------------------------------------------------------
+step 1 - start
+
+             speed = 1
+             phase = 7
+        x-position = 7
+
+                .----phase
+                .----x-position
+                v
+| x x x x x x x x . . . . . . . . |
+
+Here we start at x-position 7 and phase 7.
+Phase blocks 0-7 have been filled in.
+----------------------------------------------------------------
+            |
+	      v
+----------------------------------------------------------------
+step 2 - speed change to -1
+
+             speed = -1
+             phase = 6
+        x-position = 6
+
+              .---phase
+              .---x-position
+              v
+| x x x x x x x o . . . . . . . . |
+                ^
+                '---phase block still filled and valid
+
+Here the speed is changed to -1 and inter-column movement
+occurs backwards which leaves a residual phase block ahead
+of the current phase that is nevertheless filled and valid.
+----------------------------------------------------------------
+            |
+	      v
+----------------------------------------------------------------
+step 3 - speed change to 4
+
+             speed = 2
+             phase = 8
+        x-position = 8
+
+                .---phantom gap
+                |
+                | .----phase
+                | .----x-position
+                v v
+| x x x x x x x o x x . . . . . . |
+                ^
+                '---phase block still filled and valid
+
+After a speed change to 2 we move up to x-position 8 and 
+phase 8 which will be detected as leaving a gap between
+phase 7 and 8, but in actuality it is a 'phantom' gap as
+the phase block is filled and valid in the update column.
+----------------------------------------------------------------
+
+Since a primary goal of phase scrolling is to smooth out phase interval work
+it is preferable to avoid spending processing time to fill in phantom gaps as
+this is wasted cpu cycles and can result in erratic phase timing if many
+inter-column movements are done sequentially.
+
+In the above scenario, if we could keep track of how 'full' the update column
+was at any point irregardless of positive/negative inter-column directional
+changes, then unnecessary phase compensation could be avoided with phantom gaps,
+keeping the phase processing smoother and more consistent.
+
+To implement such tracking, phase scrolling uses the concept of a 'fill gauge'.
+
+The fill gauge is a way to monitor the 'fullness' of the update column under
+construction. After any column changes due to coarse scrolling the fill gauge is
+reset and ready to be raised again as needed.
+
+Let's revisit the previous example scenario, this time with the aid of the
+fill gauge. Note that the fill gauge points to the phase block after the highest
+phase completed since it represents the fullness of the update column that
+includes the *contents* of the highest phase completed.
+
+Example sequence with fill gauge:
+----------------------------------------------------------------
+step 1 - start
+
+             speed = 1
+             phase = 7
+        x-position = 7
+        fill gauge = 8
+
+                .----phase
+                .----x-position
+                v
+| x x x x x x x x . . . . . . . . |
+                  ^
+                  '----fill gauge
+
+Here we start at x-position 7 and phase 7.
+Phase blocks 0-7 have been filled in and the fill gauge is at 8.
+----------------------------------------------------------------
+            |
+	      v
+----------------------------------------------------------------
+step 2 - speed change to -1
+
+             speed = -1
+             phase = 6
+        x-position = 6
+        fill gauge = 8
+
+              .---phase
+              .---x-position
+              v
+| x x x x x x x o . . . . . . . . |
+                ^ ^
+                | '---fill gauge
+                |
+                '---phase block still filled and valid
+
+Here the speed is changed to -1 and backwards inter-column
+movement occurs which leaves a residual phase block ahead of
+the current phase that is nevertheless filled and valid.
+The fill gauge stays at phase 8.
+----------------------------------------------------------------
+            |
+	      v
+----------------------------------------------------------------
+step 3 - speed change to 4
+
+             speed = 2
+             phase = 8
+        x-position = 8
+        fill gauge = 8
+
+                .---phantom gap
+                |
+                | .----phase
+                | .----x-position
+                v v
+| x x x x x x x o x x . . . . . . |
+                ^ ^
+                | '---fill gauge
+                |
+                '---phase block still filled and valid
+
+After a speed change to positive 2 we move up to x-position and 
+phase 8 as before, but the phantom gap now will no longer be
+detected as an out-of-phase condition because the fill gauge
+will indicate that, in fact, the gap is not real.
+
+Further, since we are at speed 2, the phase interval will fill
+in 2 phase blocks and the fill gauge will be updated to reflect
+this new 'high water' point.
+
+             speed = 2
+             phase = 8
+        x-position = 8
+        fill gauge = 10
+
+                  .----phase
+                  .----x-position
+                  v
+| x x x x x x x x x x . . . . . . |
+                      ^
+                      '---fill gauge
+----------------------------------------------------------------
+
+As a last note, when the fill gauge is at 16, it indicates the update column
+is completely full and no more gap compensation will be needed regardless of
+x-position changes as long as we stay in the same playfield column.
+
+end text
