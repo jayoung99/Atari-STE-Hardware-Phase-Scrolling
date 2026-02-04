@@ -44,7 +44,7 @@ Topic:Introduction
 
 This text file is a supplement to the Atari STE phase scroll demo PHSCROLL.TOS.
 
-**TODO add github link here!!
+https://github.com/jayoung99/Atari-STE-Hardware-Phase-Scrolling
 
 It is meant to provide the methodology behind phase scrolling and topics of
 application.
@@ -63,7 +63,7 @@ Blitter FAQ
 https://www.atari-wiki.com/index.php?title=The_Atari_ST(E)_BLiTTER_in_brief_by_The_Paranoid_of_Paradox_2012
 
 For jumping straight to a topic you can use the search function of your text
-editer. Each section starts with the keyword 'Topic:' followed by the topic
+editor. Each section starts with the keyword 'Topic:' followed by the topic
 name from the Table of Contents. So, for example, to jump immediately to the
 section on phase scrolling search for 'Topic:Phase Scrolling' without the
 single quotes.
@@ -74,7 +74,7 @@ Topic:Infinite Scrolling
 ========================
 
 Infinite scrolling is a tile-based scrolling technique used to provide the
-illusion of continous, never-ending graphics movement across a background
+illusion of continuous, never-ending graphics movement across a background
 displayed on the physical screen. Typically it used for game levels used in
 conjunction with tile graphics data set and level map.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -88,7 +88,7 @@ Topic:Screen
 
 The graphics display of the STE in low resolution is dimensionally 320x200
 pixels and will be referred to as the 'screen'. This is represented in ram in
-planar format to accomodate the 16 color output of the shifter chip.
+planar format to accommodate the 16 color output of the shifter chip.
 
 This example will use a screen height of 160 lines instead of the full 200.
 This would leave 40 lines unused on-screen, but is just for example purposes as

@@ -207,7 +207,7 @@ main_loop:  lea     vbl_flag,a0        ;flag is set in the vbl
 
             bsr     phase_scroll       ;process speed and phase updates
             bsr     chk_input          ;check user input
-            bsr     scroller           ;process autoscroll condtions
+            bsr     scroller           ;process autoscroll conditions
 
 
             tst.b   exit_flag          ;see if termination requested
@@ -263,7 +263,7 @@ sys_check:  move.l  $5a0.w,d0          ;cookie jar pointer
 ;*******************************************************************************
 ;* name     : save_state                                                       *
 ;*                                                                             *
-;* purpose  : Save enviromential values to restore upon program termination.   *
+;* purpose  : Save environmental values to restore upon program termination.   *
 ;*                                                                             *
 ;* synopsis : Will save the current palette, resolution, physbase and logbase. *
 ;*            Will save interrupt vectors for vbl, timerb, and acia.           *
@@ -359,7 +359,7 @@ init_screen:
 ;*              where the blitter will copy. This will be adjusted as needed   *
 ;*              in code. The playfield is set to a 64k boundary on purpose so  *
 ;*              in later code, just the low word can be updated with .w access *
-;*              which is a litte faster.                                       *
+;*              which is a little faster.                                      *
 ;*            - x count is 4 as there are 4-plane words to copy each line.     *
 ;*            - y count is 0 here, but will be set as needed in routines.      *
 ;*            - hop (Halftone OPeration) is set to 2 :    BIT 7 6 5 4 3 2 1 0  *
@@ -400,7 +400,7 @@ init_blitter:
 ;* purpose  : Copy tile, graphics and level map data to assigned locations.    *
 ;*                                                                             *
 ;* synopsis : Tile data is copied on a 64k boundary so that the blitter can    *
-;*            access it by the low word as .w which is a litte faster.         *
+;*            access it by the low word as .w which is a little faster.        *
 ;*            The byte-array level map is copied in right after the tile data. *
 ;*            The static top and bottom status bar graphics are copied in      *
 ;*            immediately past the playfield scanwalk buffer.                  *
@@ -466,7 +466,7 @@ init_playfield:
             lea     -8(a2),a2          ;back one column for left update column
 
 ;get pointer to tile data and set blitter source
-            lea     TD_ADDR,a1         ;address of tile gaphics data
+            lea     TD_ADDR,a1         ;address of tile graphics data
             move.l  a1,hw_BLT_SRC_ADDR_L.w  ;in 64k block so can use .w in loop
 
 ;set loop count
@@ -759,7 +759,7 @@ vbl:        movem.l d0-d7/a0-a1,-(sp)  ;interrupt routine so save registers
             movem.l d0-d7,hw_VID_COLOR0.w            ;set shifter palette
 
 ;set timer b to fire at line where playfield will start (1 line before please)
-            move.b  LSplit(a0),hw_MFP_TBDR.w ;$fffa21 - timer b interupt line
+            move.b  LSplit(a0),hw_MFP_TBDR.w ;$fffa21 - timer b interrupt line
             move.b  #8,hw_MFP_TBCR.w         ;$fffa1b - start timer b
                                              ;8 = event (line) count mode
 
@@ -871,7 +871,7 @@ timerb:
 ;*            For keyboard events, there are two states, 'make' which is when  *
 ;*            a key is pressed down, and 'break' for when key is released.     *
 ;*            The 'break' state has the scancode byte ORed with #$80. This     *
-;*            is stored as-is here and it is the responsibilty of the program  *
+;*            is stored as-is here and it is the responsibility of the program *
 ;*            code to handle the 'make' and 'break' events. The joystick has   *
 ;*            been initialized to joystick event reporting mode previously     *
 ;*            and in this mode ikbd will first present a 'header' byte that    *
@@ -942,7 +942,7 @@ ikbd:
 ;* synopsis : Phase scroll has two aspects :                                   *
 ;*            - There is a shifter scroll which handles the fine and coarse    *
 ;*              scrolling based on the current playfield x-position and the    *
-;*              speed or x-delta change which can be postive or negative. The  *
+;*              speed or x-delta change which can be positive or negative. The *
 ;*              shifter scroll also has a small component to be run in the     *
 ;*              vertical blank interrupt to set the current hscroll and screen *
 ;*              address values in the playfield raster split table so they can *
@@ -950,7 +950,7 @@ ikbd:
 ;*              split to set the hscroll and screen address registers of the   *
 ;*              shifter.                                                       *
 ;*            - There is also a blitter scroll component which is tasked with  *
-;*              phase-wise contruction of the scanwalk update columns so that  *
+;*              phase-wise construction of the scanwalk update columns so that *
 ;*              they are ready and available to display upon a coarse scroll   *
 ;*              irregardless of speed or directional changes. The blitter is   *
 ;*              used for the copying of tile graphics data during the update   *
@@ -967,7 +967,7 @@ phase_scroll:
 ;* purpose  : Update fine and coarse scroll variables used by the shifter.     *
 ;*                                                                             *
 ;* synopsis : The fine and coarse scrolling is based on the current playfield  *
-;*            x-position and the speed or x-delta changes which can be postive *
+;*            x-position and speed or x-delta changes which can be positive    *
 ;*            or negative. This also involves range checking to ensure that    *
 ;*            min/max limits of the playfield are not exceeded. If x-position  *
 ;*            changes result in a column change then the appropriate variables *
@@ -975,7 +975,7 @@ phase_scroll:
 ;*            stored to allow column changes to be detected. The x-position    *
 ;*            value is pixel oriented so ANDing these values with $FFF0 will   *
 ;*            give the column number as the STE shifter uses word-size planes  *
-;*            representing 16 pixels. There is a small ancillory component to  *
+;*            representing 16 pixels. There is a small ancillary component to  *
 ;*            be run in the vertical blank interrupt. Details below in the     *
 ;*            header for that subroutine.                                      *
 ;*******************************************************************************
@@ -1015,7 +1015,7 @@ shifter_scroll:
                                        ;happens and if it is left or right
                                        ;valid flag values are -1,0,1
             andi.w  #$fff0,d1          ;new tile column from current x-pos
-            andi.w  #$fff0,d2          ;old tile column from prvious x-pos
+            andi.w  #$fff0,d2          ;old tile column from previous x-pos
             cmp.w   d2,d1              ;are the columns different?
             beq.s   .cs_done           ;no, skip coarse scroll adjustment
             bgt.s   .cs_right          ;new column greater so going right
@@ -1074,7 +1074,7 @@ shifter_scroll_vbl:
 ;*                                                                             *
 ;* purpose  : Keep update columns in-phase and ready to display.               *
 ;*                                                                             *
-;* synopsis : This routine is tasked with phase-wise contruction of the        *
+;* synopsis : This routine is tasked with phase-wise construction of the       *
 ;*            scanwalk update columns so that they are ready and available to  *
 ;*            display upon a coarse scroll. They should ready irregardless of  *
 ;*            speed or directional changes. The blitter is used for fast copy  *
@@ -1195,7 +1195,7 @@ gap_completion:
             sub.w   d3,d1              ;gap size is pseudo-speed
 ;-------------------------------------------------------------------------------
 ;normally the update column offset is the same as the scroll direction:
-;-1 for left scrolling and 21 for right scolling
+;-1 for left scrolling and 21 for right scrolling
 ;this is the column offset to draw in the correct column for the direction
 ;here we need to work on the previous update column so it would change to:
 ;0 for left scrolling and 20 for right scrolling
