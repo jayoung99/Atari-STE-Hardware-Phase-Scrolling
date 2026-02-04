@@ -81,7 +81,7 @@ https://atari-forum.com/viewtopic.php?p=489188#p48918
 End-of-scanline sync method from Klapauzius at atari-forum:
 https://atari-forum.com/viewtopic.php?p=210237#p210237        
 
-Hatari team for the indispensible and ever useful Hatari emulator:
+Hatari team for the indispensable and ever useful Hatari emulator:
 https://www.hatari-emu.org/
 
 Big thank you to Eero Tamminen who is always available and patient with my Hatari questions and requests over at atari-forum.
