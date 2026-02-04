@@ -20,7 +20,7 @@
 ;*                 TOPBAR.BIN                                                  *
 ;*                                                                             *
 ;* Inspired by ideas in the Amiga 8-Way-Tile-Scroller by Gonzo/Green Rabbits : *
-;* https://aminet.net/package/dev/asm/8wayscrolleri                            *
+;* https://aminet.net/package/dev/asm/8wayscroller                             *
 ;*                                                                             *
 ;* Screen graphics by Simon Phipps (c) Core Design and are included solely for *
 ;* demonstration purposes.                                                     *
