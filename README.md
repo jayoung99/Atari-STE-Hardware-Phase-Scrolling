@@ -57,6 +57,8 @@ Jeffrey Young aka TheNameOfTheGame on atari-forum where I can be contacted via p
 
 * 1.0
     * Initial release
+* 1.01
+    * Bugfix for joystick events registering as keypresses
 
 ## License
 

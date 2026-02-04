@@ -32,6 +32,7 @@
 ;* Rev #      Date     Who     Comments                                        *
 ;* -----  -----------  ------  ----------------------------------------------- *
 ;*  1.0    02-Feb-26   J.Y.    First revision for release                      *
+;*  1.01   04-Feb-26   J.Y.    Bugfix: joystick events register as keypress    *
 ;*******************************************************************************
 
 ;DEBUG = 1 will display some timing rasters
