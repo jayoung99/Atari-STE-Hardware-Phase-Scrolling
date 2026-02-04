@@ -467,7 +467,7 @@ number of bytes.  In total a scanwalk scanline requires 184 bytes.
 
 
 ==========================
-Topic: Scanwalk Tile Lines
+Topic:Scanwalk Tile Lines
 ==========================
 
 Each tile is 16 scanlines in height so 16 scanwalk lines is equivalent to what
@@ -1355,9 +1355,9 @@ require 'phase compensation' and the other 'phase completion'.
 
 Both are described below.
 
-==================
-Phase Compensation
-==================
+========================
+Topic:Phase Compensation
+========================
 
 Consider the following example to understand how and why gaps could occur that
 require phase compensation. The example present a series of movements possible
