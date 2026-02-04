@@ -75,8 +75,8 @@ Topic:Infinite Scrolling
 
 Infinite scrolling is a tile-based scrolling technique used to provide the
 illusion of continuous, never-ending graphics movement across a background
-displayed on the physical screen. Typically it used for game levels used in
-conjunction with tile graphics data set and level map.
+displayed on the physical screen. Typically it is used for game levels in
+conjunction with a tile graphics data set and level map.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 See Topic:Tiles
 See Topic:Level Map
@@ -220,6 +220,7 @@ copying graphics data into the screen ram. This is the idea of a 'level map'.
 ===============
 Topic:Level Map
 ===============
+
 Since each tile requires 128 bytes, the complete tile graphics data block can
 be seen as an indexable contiguous series of these 128 byte blocks.
 
@@ -354,7 +355,7 @@ See Topic:Tiles
 The scanwalk scrolling technique treats the entire screen as one contiguous
 scanline. This method requires additional hidden columns in the buffer
 layout to provide space to update or 'fill-in' upcoming tile data during
-times of fine scrolling so that these update columns are ready to be used as
+times of fine-scrolling so that these update columns are ready to be used as
 playfield display columns by the time a coarse scroll is needed and the
 physical screen pointer updated.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -414,7 +415,7 @@ ttttttttttS--ttttttttttttttttttttS--ttttttttttttttttttttS--ttttttttttttttttttttS
 ........
 
 To describe the scanwalk playfield buffer memory requirements, we'll look at
-the constituent parts its construction in the topics to follow.
+the constituent parts in its construction in the topics to follow.
 
 These topics will break down exactly how the scanwalk playfield buffer is
 constructed and what size the buffer ultimately needs to be for any particular
@@ -447,7 +448,8 @@ Topic:Scanwalk Lines
 ====================
 
 A scanwalk line is comprised of tile scanline segments, each requiring a certain
-number of bytes.  In total a scanwalk scanline requires 184 bytes.
+number of bytes.  In total a scanwalk scanline requires 184 bytes for
+bi-directional scrolling.
 
   .--- left update scanline (8 bytes)
   |
@@ -518,7 +520,7 @@ Topic:Minimal Buffer
 ====================
 
 For our example scanwalk layout, 160 vertical screen lines is equivalent to
-10 tile lines to comprise the minimal buffer space required.
+10 scanwalk tile lines to comprise the minimal buffer space required.
 
   .---left update column
   |
@@ -560,14 +562,14 @@ display end. Update columns are hidden as well as the scroll column.
  |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|    |
  |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|    |
  |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|    |
- |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|    |--- 10 tile lines
+ |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|    |--- 10 scanwalk tile lines
  |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|    |
  |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|    |
  |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|    |
  |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|    |
  |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|<---'
 
-When fine scrolling is activated the hardware scroll features of the STE
+When fine-scrolling is activated the hardware scroll features of the STE
 shifter are used to offset the starting pixel within the playfield tile line
 column. This utilizes the fact that the scroll column is populated so after
 moving to x-position 1, the display would be changed and display would start
@@ -585,7 +587,7 @@ the scroll column.
  |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|    |
  |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|    |
  |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|    |
- |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|    |--- 10 tile lines
+ |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|    |--- 10 scanwalk tile lines
  |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|    |
  |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|    |
  |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|    |
@@ -595,7 +597,7 @@ the scroll column.
 Every 16-pixels of fine-scroll there is need to perform a 'coarse scroll'
 where the actual screen address is incremented by 8 bytes and the hardware
 scroll of the shifter reset to 0. This method is used to continue the illusion
-of infinte scrolling. Consider the case where the x-position has changed to 16.
+of infinite scrolling. Consider the case where the x-position has changed to 16:
 
   .---don't care
   |
@@ -608,7 +610,7 @@ of infinte scrolling. Consider the case where the x-position has changed to 16.
  |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|    |
  |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|    |
  |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|    |
- |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|    |--- 10 tile lines
+ |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|    |--- 10 scanwalk tile lines
  |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|    |
  |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|    |
  |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|    |
@@ -685,7 +687,7 @@ of a level map with 144 tiles at 10 vertical tiles per screen.
  |U|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|S|U|<---'
  |...additional 984 bytes|
 
-  10*2944+984 = 30424 bytes
+  10*29440+984 = 30424 bytes
 
 Of course scanwalk scrolling doesn't mandate 10 tiles vertically or really
 any specific screen height. However, the 'phase scrolling' derivative which
@@ -696,22 +698,22 @@ method but each would require different buffer sizes.
 Below are some examples with a level map of 144 tiles wide:
 
                             (bi-directional)
- Screen Height | Vertical Tiles | Level Map Width | Scanwalk Buffer Size
-     152               9                144             27480 bytes
-     160              10                144             30424 bytes
-     176              11                144             33368 bytes
-     192              12                144             36312 bytes
+ Playfield Height | Vertical Tiles | Level Map Width | Scanwalk Buffer Size
+        152               9                144             27480 bytes
+        160              10                144             30424 bytes
+        176              11                144             33368 bytes
+        192              12                144             36312 bytes
 
 The above requirements are for bi-directional horizontal scrolling. For
 left-to-right or uni-directional horizontal scrolling the left update column
 is eliminated requiring less memory as reflected in the table below:
 
                             (uni-directional)
- Screen Height | Vertical Tiles | Level Map Width | Scanwalk Buffer Size
-     152               9                144             26328 bytes
-     160              10                144             29144 bytes
-     176              11                144             31960 bytes
-     192              12                144             34776 bytes
+ Playfield Height | Vertical Tiles | Level Map Width | Scanwalk Buffer Size
+        152               9                144             26328 bytes
+        160              10                144             29144 bytes
+        176              11                144             31960 bytes
+        192              12                144             34776 bytes
 
 
 =====================
@@ -722,7 +724,7 @@ Phase scrolling as presented here is an application of the scanwalk tile-based
 'infinite' horizontal scrolling technique for the Atari STE which attempts to
 smooth out the drawing of update column data while also allowing changes in
 scrolling speed. To this end, phase scrolling requires playfield heights based
-on multiples of 16x16 graphics tiles. These 4-plane graphics block build the
+on multiples of 16x16 graphics tiles. These 4-plane graphics blocks build the
 playfield display based on a level map which indicates which tile is to be
 used in which playfield position.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -735,10 +737,10 @@ Hence, a playfield with 160 vertical display lines would be 10 tiles high
 vertically, that value is just what this project is based around.
 
 The idea behind this implementation is that of having 16 fine-scroll intervals
-availble to copy and 'fill-in' data into the update columns before a coarse
+available to copy and 'fill-in' data into the update columns before a coarse
 scroll and screen address change. Having screen heights at a fixed multiple of
-16 means that each fine scroll interval (i.e. phase) has a fixed number of lines
-to copy into the update buffer. For example, with a 160 line screen, each phase
+16 means that each fine-scroll interval (i.e. phase) has a fixed number of lines
+to copy to the update buffer. For example with a 160 line playfield, each phase
 will need to only fill in 10 lines of the update column - called a phase block.
 This results in a consistent workload and therefore helps to smooth out the cpu
 time required for completing the entire update column.
@@ -758,7 +760,7 @@ Each will be described in the following topics.
 Topic:Phases
 ============
 
-Phases are the part of the fine scrolling interval where the work of copying
+Phases are the part of the fine-scrolling interval where the work of copying
 tile graphics data into the update column for the next coarse scroll is done in
 such a way that the work is composed of consistent and even segments called
 phase blocks.
@@ -766,10 +768,10 @@ phase blocks.
 See Topic:Memory Layout
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-Below is a diagram of the phases and their constituent phase block with respect
-to the available speeds based playfield height of 160 lines or 10 tiles. For
+Below is a diagram of the phases and their constituent phase blocks with respect
+to the available speeds based on playfield height of 160 lines or 10 tiles. For
 speed 1, phase blocks are 10 lines each phase so that when the last phase is
-complete the update column is completely filled and ready to be used for the
+complete the update column is entirely filled and ready to be used for the
 visible playfield. This happens in sync with the fine-scrolling since there are
 16 fine-scroll positions and 16 phases. Negative speeds are handled the same as
 their positive counterparts.
@@ -780,7 +782,7 @@ is naturally higher and so the phase block height also increases. For speed 2,
 phases to complete the update column is reduced to 8 since we are now moving at
 twice the speed. Speed 4 needs 40 lines filled-in per phase with 4 phases and
 speed 8 needs 80 lines per phase with only two phase per update column fill.
-For this project the phase blocks copied to the update column with the STE
+For this project the phase blocks are copied to the update column with the STE
 blitter chip in hog mode to optimize speed.
 
     speed 1              speed 2              speed 4              speed 8
@@ -1068,7 +1070,7 @@ x-position 0 --> construct update column phase block 0
 So by default, the construction of the update column progresses from 0->15
 when scrolling right and from 15->0 when scrolling left. This requires some
 additional code to handle the differences especially with regards to gap
-detection and updating the fill gauge.
+detection and updating the fill gauge which is avoided with normalization.
 ~~~~~~~~~~~~~~~~~~~~~~~
 See Topic:Speed Changes
 See Topic:Fill Gauge
@@ -1186,9 +1188,9 @@ valid phase blocks -----------.  (0, 4, 8, 12)
                           |     |
     x-position 7 ---------|-----+
                           |
-      normalized phase ---' (normalized and in-phase)
+      normalized phase ---'  (normalized and in-phase)
 
-Here the phase has been normalizing and this results in an
+Here the phase has been normalized and this results in an
 'in-phase' condition.
 ----------------------------------------------------------------
 
@@ -1241,10 +1243,9 @@ In phase scrolling the only time the scroll direction value might change is
 when an actual column change occurs. And if the column change causes a scroll
 direction value change, the update column that is used will also be changed.
 
-Key to understanding this is to know that when the playfield is first drawn if
-the starting column is other than the first or last one, then *both* the left
-update column and scroll column are filled in so that scrolling may happen in
-either direction at the start.
+Key to understanding this is to know that when the playfield is first drawn
+*both* the left update column and scroll column are filled in so that scrolling
+may happen in either direction at the start.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 See Topic:Playfield Buffer
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1261,7 +1262,7 @@ Shown with accompanying update and scroll columns.
 
 Because we don't know ahead of time which way scrolling will be initiated at
 the start we therefore populate both the left update column and the scroll
-column during this initial screen draw. This effectively makes the left update
+column during the initial screen draw. This effectively makes the left update
 column a pseudo-scroll column for the start.
 
 The direction value is set to RIGHT as the default which implies the right
@@ -1304,9 +1305,9 @@ update column will be used.
  |         |
  |         '---display start from pixel 15 of column 11
  |
- |      The left update column will then continue to used during the update
+ |      The left update column will then continue to be used during the update
  |      intervals as long as there is no column changes, irregardless of
- |      inter-column directional changes due to postive/negative speeds.
+ |      inter-column directional changes due to positive/negative speeds.
  |      ------------------------------------------------------------------------
  |
  |      ------------------------------------------------------------------------
@@ -1348,7 +1349,7 @@ which 'gaps' can appear in the update column. These gaps need to be addressed to
 continue the seamless illusion of 'infinite' scrolling.
 
 Such gaps only appear if the speed has been increased and after a one-time
-mending, the phases will then copy phase block to the update column at the new
+mending, the phases will then copy phase blocks to the update column at the new
 speed as normal. Note that not every speed increase will cause a gap. Further,
 there are 2 slightly different out-of-phase conditions possible, one which will
 require 'phase compensation' and the other 'phase completion'.
@@ -1360,7 +1361,7 @@ Topic:Phase Compensation
 ========================
 
 Consider the following example to understand how and why gaps could occur that
-require phase compensation. The example present a series of movements possible
+require phase compensation. The example presents a series of movements possible
 in a phase scroll sequence involving speed changes and their outcomes.
 
 ----------------------------------------------------------------
@@ -1482,7 +1483,7 @@ However, this x-position increase has resulted in two things.
 First, it has caused a coarse scroll into a new screen address.
 This means the phase is now reset back to 0. It also means the old
 update column we were working on filling is now the scroll column
-and can be visible on the screen as the fine scroll continues.
+and can be visible on the screen as the fine-scroll continues.
 We can see the speed increase has resulted in a out-of-phase gap
 at the end of the old update column. This gap will contain invalid
 tile data and will be visible as 'garbage' on the screen. This gap
@@ -1562,7 +1563,7 @@ of the current phase that is nevertheless filled and valid.
             |
             v
 ----------------------------------------------------------------
-step 3 - speed change to 4
+step 3 - speed change to 2
 
              speed = 2
              phase = 8
@@ -1650,7 +1651,7 @@ The fill gauge stays at phase 8.
             |
             v
 ----------------------------------------------------------------
-step 3 - speed change to 4
+step 3 - speed change to 2
 
              speed = 2
              phase = 8
