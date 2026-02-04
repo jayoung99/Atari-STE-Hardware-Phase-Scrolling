@@ -314,10 +314,28 @@ sav_state:
 ;*            to their assigned locations, draw the initial playfield, and     *
 ;*            set up interrupt vectors and registers.                          *
 ;*******************************************************************************
-init_all:   bsr     init_blitter       ;initialize blitter registers
+init_all:   bsr     init_screen        ;initialize screen 
+            bsr     init_blitter       ;initialize blitter registers
             bsr     init_assets        ;copy assets to assigned addresses
             bsr     init_playfield     ;draw initial playfield
             bsr     init_interrupts    ;install handlers and init hardware
+            rts
+
+;*******************************************************************************
+;* name     : init_screen                                                      *
+;*                                                                             *
+;* purpose  : Initialize screen parameters                                     *
+;*                                                                             *
+;* synopsis : Will initialize screen parameters.  Currently, this simply sets  *
+;*            the resolution to low.                                           *
+;*******************************************************************************
+init_screen:
+            clr.w   -(sp)              ;low resolution
+            move.l  #-1,-(sp)          ;no change to physbase
+            move.l  #-1,-(sp)          ;no change to logbase
+            move.w  #5,-(sp)           ;Setscreen
+            trap    #14                ;call XBIOS
+            lea     12(sp),sp          ;correct stack pointer
             rts
 
 ;*******************************************************************************
