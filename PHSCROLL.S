@@ -314,7 +314,7 @@ sav_state:
 ;*            to their assigned locations, draw the initial playfield, and     *
 ;*            set up interrupt vectors and registers.                          *
 ;*******************************************************************************
-init_all:   bsr     init_screen        ;initialize screen 
+init_all:   bsr     init_screen        ;initialize screen
             bsr     init_blitter       ;initialize blitter registers
             bsr     init_assets        ;copy assets to assigned addresses
             bsr     init_playfield     ;draw initial playfield
@@ -533,6 +533,8 @@ init_interrupts:
 .wait:      btst    #1,hw_ACIA_KEYCTL.w  ;$fffc00 - wait for command to finish
             beq.s   .wait                ;loop until done
             move.b  #$14,hw_ACIA_KEYBD.w ;$fffc02 - enable joystick events
+.wait2:     btst    #1,hw_ACIA_KEYCTL.w  ;$fffc00 - wait for command to finish
+            beq.s   .wait2               ;loop until done
 
 ;clear ikbd buffer
             lea     hw_ACIA_KEYCTL,a0  ;$fffc00 - acia ikbd control
@@ -905,8 +907,8 @@ ikbd:
             bra.s   .ikbd_done
 
 ;check if joystick header received
-.chk_headr: cmp.b   #$f8,d0            ;packet headers range $f8-$ff
-            bpl.s   .get_key           ;not a header, get the scancode
+.chk_headr: cmp.b   #$f6,d0            ;packet headers range $f6-$ff
+            bcs.s   .get_key           ;not a header, get the scancode
             cmp.b   #$ff,d0            ;joystick 1 event?
             bne.s   .chk_hedr0         ;no, check joystick 0
             st.b    Joy1Header(a0)     ;mark that we expect payload data next
