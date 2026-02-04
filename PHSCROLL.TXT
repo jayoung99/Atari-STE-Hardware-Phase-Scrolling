@@ -747,7 +747,7 @@ This concept also allows a method of speed changes to work smoothly around the
 core idea. There are 8 speeds in phase scrolling: 1,2,4,8,-1,-2,-4 and -8
 (with 0 being no scroll) and each speed reflects the number of pixels which
 will be fine-scrolled. Using these discrete speed values, which all go into 16
-themselves allows the phases to be scaled up and down with the phase blocks 
+themselves allows the phases to be scaled up and down with the phase blocks
 rising and falling in height in-phase with speed changes.
 
 There are several concepts to be considered regarding STE phase scrolling.
@@ -767,7 +767,7 @@ See Topic:Memory Layout
 ~~~~~~~~~~~~~~~~~~~~~~~
 
 Below is a diagram of the phases and their constituent phase block with respect
-to the available speeds based playfield height of 160 lines or 10 tiles. For 
+to the available speeds based playfield height of 160 lines or 10 tiles. For
 speed 1, phase blocks are 10 lines each phase so that when the last phase is
 complete the update column is completely filled and ready to be used for the
 visible playfield. This happens in sync with the fine-scrolling since there are
@@ -1187,7 +1187,7 @@ valid phase blocks -----------.  (0, 4, 8, 12)
     x-position 7 ---------|-----+
                           |
       normalized phase ---' (normalized and in-phase)
-	
+
 Here the phase has been normalizing and this results in an
 'in-phase' condition.
 ----------------------------------------------------------------
@@ -1283,17 +1283,17 @@ update column will be used.
  .-.
  | |    ------------------------------------------------------------------------
  | '--> step 2a - immediate move to the left - tile column 11
- |	 
+ |
  |      With an immediate move to the left from pixel 0 of tile 12 we have moved
  |      into column 11 as the first column display on-screen. Since this was
  |      filled during the initial draw it is no problem. The screen address
  |      pointer is decremented by 8 and the scroll value is set to 15 as we are
  |      at speed -1.
- |      
+ |
  |      Because there was a column change the speed is checked to see if it was
  |      negative. If it was, then the scroll direction is changed to LEFT which
  |      causes the left update column to used.
- |      
+ |
  |       .---change to use left update column
  |       |
  |       v
@@ -1303,7 +1303,7 @@ update column will be used.
  |         |                              '---contains intact data for column 32
  |         |
  |         '---display start from pixel 15 of column 11
- |      
+ |
  |      The left update column will then continue to used during the update
  |      intervals as long as there is no column changes, irregardless of
  |      inter-column directional changes due to postive/negative speeds.
@@ -1314,12 +1314,12 @@ update column will be used.
 
         If instead of moving left at the start, there was an immediate move
         right, then the situation is only that we have moved 1 pixel in the same
-	  column so the direction will stay RIGHT and 1 pixel from the initial
-	  scroll column will be visible on the screen. Also, the right update
-	  column will be used up until a column change is detected in which case
-	  a check will be made to see if the speed was positive or negative when
-	  the coarse scroll occurred.
-       
+        column so the direction will stay RIGHT and 1 pixel from the initial
+        scroll column will be visible on the screen. Also, the right update
+        column will be used up until a column change is detected in which case
+        a check will be made to see if the speed was positive or negative when
+        the coarse scroll occurred.
+
                                           .---pixel 1 of scroll column visible
                                           |
                                           v
@@ -1329,7 +1329,7 @@ update column will be used.
            |                                '---right update column used
            |
            '---display will be from pixel 1 of column 12
-	  ------------------------------------------------------------------------
+        ------------------------------------------------------------------------
 
 
 ===================
@@ -1380,7 +1380,7 @@ The 'x' represents the portion of the update column that is
 filled during the phase.
 ----------------------------------------------------------------
             |
-	      v
+            v
 ----------------------------------------------------------------
 step 2 - movement to the right
 
@@ -1398,7 +1398,7 @@ still aligned. At this point 2 phase blocks have copied into
 the update column.
 ----------------------------------------------------------------
             |
-	      v
+            v
 ----------------------------------------------------------------
 step 3 - speed increase to 4
 
@@ -1458,7 +1458,7 @@ Here we start at x-position 13 and phase 13. Phase blocks 0-13
 are filled in.
 ---------------------------------------------------------------------
             |
-	      v
+            v
 ---------------------------------------------------------------------
 step 2 - speed increase to 4
 
@@ -1468,7 +1468,7 @@ step 2 - speed increase to 4
 
                             .---previous phase
                             |       .---phase
-                            |       | .---x-position                
+                            |       | .---x-position
                             v       v v
 | x x x x x x x x x x x x x x * * | x x x x . . . . . . . . . . . . |
                               ^   ^
@@ -1540,7 +1540,7 @@ Here we start at x-position 7 and phase 7.
 Phase blocks 0-7 have been filled in.
 ----------------------------------------------------------------
             |
-	      v
+            v
 ----------------------------------------------------------------
 step 2 - speed change to -1
 
@@ -1560,7 +1560,7 @@ occurs backwards which leaves a residual phase block ahead
 of the current phase that is nevertheless filled and valid.
 ----------------------------------------------------------------
             |
-	      v
+            v
 ----------------------------------------------------------------
 step 3 - speed change to 4
 
@@ -1577,7 +1577,7 @@ step 3 - speed change to 4
                 ^
                 '---phase block still filled and valid
 
-After a speed change to 2 we move up to x-position 8 and 
+After a speed change to 2 we move up to x-position 8 and
 phase 8 which will be detected as leaving a gap between
 phase 7 and 8, but in actuality it is a 'phantom' gap as
 the phase block is filled and valid in the update column.
@@ -1624,7 +1624,7 @@ Here we start at x-position 7 and phase 7.
 Phase blocks 0-7 have been filled in and the fill gauge is at 8.
 ----------------------------------------------------------------
             |
-	      v
+            v
 ----------------------------------------------------------------
 step 2 - speed change to -1
 
@@ -1648,7 +1648,7 @@ the current phase that is nevertheless filled and valid.
 The fill gauge stays at phase 8.
 ----------------------------------------------------------------
             |
-	      v
+            v
 ----------------------------------------------------------------
 step 3 - speed change to 4
 
@@ -1668,7 +1668,7 @@ step 3 - speed change to 4
                 |
                 '---phase block still filled and valid
 
-After a speed change to positive 2 we move up to x-position and 
+After a speed change to positive 2 we move up to x-position and
 phase 8 as before, but the phantom gap now will no longer be
 detected as an out-of-phase condition because the fill gauge
 will indicate that, in fact, the gap is not real.
