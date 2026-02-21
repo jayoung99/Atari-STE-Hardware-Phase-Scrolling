@@ -1,10 +1,10 @@
 #!/bin/bash
 
-#Phase Scroll Demo
-name="Phase Scroll"
-target=PHSCROLL
-#debug=PHSCRL_D
-src=PHSCROLL.S
+#Vertical Phase Scroll Demo
+name="Vertical Phase Scroll"
+target=VPSCROLL
+#debug=VPSCRL_D
+src=VPSCROLL.S
 
 #assemble and link debug version w/external symbol table
 #vasm -m68000 -Felf -devpac -o "$target".O "$src"

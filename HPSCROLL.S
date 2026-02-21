@@ -1,9 +1,10 @@
 ;        1         2         3         4         5         6         7         8
 ;2345678901234567890123456789012345678901234567890123456789012345678901234567890
 ;*******************************************************************************
-;* Title : PHSCROLL.S                                                          *
+;* Title : HPSCROLL.S                                                          *
 ;*******************************************************************************
 ;* Description   : Atari STE Phase Scrolling Demonstration                     *
+;*                 Horizontal Scan Walk Method                                 *
 ;*                                                                             *
 ;* Coding        : Jeffrey Young                                               *
 ;*                                                                             *
@@ -11,7 +12,7 @@
 ;*                 Leonard - STE machine detection method                      *
 ;*                 SimonSunnyBoy - Timer B playfield split method              *
 ;*                                                                             *
-;* Documentation : PHSCROLL.TXT                                                *
+;* Documentation : HPSCROLL.TXT                                                *
 ;*                                                                             *
 ;* Include Files : SYSTEM.EQU                                                  *
 ;*                 LMAP.BIN                                                    *
@@ -26,7 +27,7 @@
 ;* demonstration purposes.                                                     *
 ;*                                                                             *
 ;* Assembler : vasm 1.9e (c) in 2002-2023 Volker Barthelmann                   *
-;*             vasm -m68000 -Ftos -devpac -nosym -o PHSCROLL.TOS PHSCROLL.S    *
+;*             vasm -m68000 -Ftos -devpac -nosym -o HPSCROLL.TOS HPSCROLL.S    *
 ;*                                                                             *
 ;* Revision History :                                                          *
 ;* Rev #      Date     Who     Comments                                        *
@@ -447,10 +448,10 @@ init_assets:
 ;*            in order to allow fine-scroll in either direction at the onset.  *
 ;*            The playfield screen is drawn in columns and the blitter chip is *
 ;*            used to copy the data to memory.                                 *
-;*            Summarizing, 22 columns of PF_H tiles will be blitted into the   *
+;*            Summarizing, 22 columns of PF_ROWS tiles will be blitted to the  *
 ;*            playfield buffer. This is 1 left update column, 20 playfield     *
-;*            columns, and 1 scroll column. PF_H is 10 for this program but is *
-;*            available to change as a user-defined equate.                    *
+;*            columns, and 1 scroll column. PF_ROWS is 10 for this program but *
+;*            is available to change as a user-defined equate.                 *
 ;*******************************************************************************
 init_playfield:
 ;get pointer into level map
@@ -984,10 +985,15 @@ phase_scroll:
 ;*******************************************************************************
 shifter_scroll:
             lea     pf_currx,a0        ;address register indirect quicker
+            moveq   #0,d3              ;coarse scroll flag cleared to start
+                                       ;used to flag whether coarse scroll
+                                       ;happens and if it is left or right
+                                       ;valid flag values are -1,0,1
 
 ;handle speed 0
             move.w  pfSpeed(a0),d0     ;current playfield speed +/-
-            beq.s   .get_xpos          ;keep prev speed if current is 0
+;            beq.s   .get_xpos          ;keep prev speed if current is 0
+            beq.s   .cs_done           ;keep prev speed if current is 0
             move.w  d0,pfPrvSpd(a0)    ;prev speed for phase scroll idling
                                        ;if current speed is 0 then prev
                                        ;speed is used to 'idle' so that
@@ -999,8 +1005,9 @@ shifter_scroll:
             move.w  d1,d2              ;to compare if column change later
             add.w   d0,d1              ;change x-pos according to speed +/-
             tst.w   d0                 ;check speed
-            beq.s   .rchk_done         ;if speed = 0, no range check needed
-            bpl.s   .chk_redge         ;if positive, check right edge
+;            beq.s   .rchk_done         ;if speed = 0, no range check needed
+;            bpl.s   .chk_redge         ;if positive, check right edge
+            bgt.s   .chk_redge
 
 .chk_ledge: cmp.w   #PF_MINX-1,d1      ;check pos just past left edge
             bgt.s   .rchk_done         ;if not there, then all is ok
@@ -1013,10 +1020,6 @@ shifter_scroll:
 
 ;coarse scroll check
 .rchk_done: move.w  d1,pfCurrX(a0)     ;save new playfield x-position
-            moveq   #0,d3              ;coarse scroll flag cleared to start
-                                       ;used to flag whether coarse scroll
-                                       ;happens and if it is left or right
-                                       ;valid flag values are -1,0,1
             andi.w  #$fff0,d1          ;new tile column from current x-pos
             andi.w  #$fff0,d2          ;old tile column from previous x-pos
             cmp.w   d2,d1              ;are the columns different?
@@ -1083,13 +1086,13 @@ shifter_scroll_vbl:
 ;*            speed or directional changes. The blitter is used for fast copy  *
 ;*            of tile graphics data during the update column construction.     *
 ;*            The process of update column construction is multi-step. Details *
-;*            are in the documentation provided with this code : PHSCROLL.TXT  *
+;*            are in the documentation provided with this code : HPSCROLL.TXT  *
 ;*            and the reader is directed there for full explanation. The steps *
 ;*            will be summarized here:                                         *
 ;*            - Check for speed 0 and if so, load the previous speed to use.   *
 ;*              This is so that phase processing is consistent and there is    *
 ;*              the same processing time taken as was the previous interval.   *
-;*            - Normalize the conditions. Here we are normalizing the
+;*            - Normalize the conditions.                                      *
 ;*              - Speed is normalized as an absolute value since the phase     *
 ;*                processing is the same whether the speed is positive or      *
 ;*                negative. Speed polarity can determine which update column   *
@@ -1329,7 +1332,7 @@ pf_scrptr:     dc.l   PF_STADDR        ;start of visible display in buffer
 pf_currx:      dc.w   PF_STARTX        ;playfield current x-position in pixels
 pf_speed:      dc.w   PF_SPEED         ;scroll speed 0,1,2,4,8,-1,-2,-4,-8
 pf_dir:        dc.w   21               ;scroll direction offset -1,21
-pf_fg:         dc.w   1                ;update column fill gauge 1-16
+pf_fg:         dc.w   0                ;update column fill gauge 1-16
 pf_cs:         dc.w   0                ;coarse scroll flag -1,0,1
 pf_lm_cx:      dc.w   LM_STARTX        ;level map current x-position in tiles
 pf_prvspd:     dc.w   PF_SPEED         ;prev scroll speed 0,1,2,4,8,-1,-2,-4,-8

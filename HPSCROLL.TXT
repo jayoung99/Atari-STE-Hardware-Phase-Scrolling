@@ -2,7 +2,7 @@
 ;2345678901234567890123456789012345678901234567890123456789012345678901234567890
 ;*******************************************************************************
 
-                          Phase Scrolling Methodology
+                    Horizontal Phase Scrolling Methodology
                                by Jeffrey Young
 
 =================
@@ -42,7 +42,7 @@ Table of Contents
 Topic:Introduction
 ===================
 
-This text file is a supplement to the Atari STE phase scroll demo PHSCROLL.TOS.
+This text file is a supplement to the Atari STE phase scroll demo HPSCROLL.TOS.
 
 https://github.com/jayoung99/Atari-STE-Hardware-Phase-Scrolling
 
@@ -50,7 +50,7 @@ It is meant to provide the methodology behind phase scrolling and topics of
 application.
 
 It does not attempt to document how to program STE hardware or the phase scroll
-alogorithm. The source code for the demo PHSCROLL.S is fully commented and
+algorithm. The source code for the demo HPSCROLL.S is fully commented and
 provides a good foundation for that.
 
 For technical details of the STE features used in the demo, below are some
@@ -327,7 +327,7 @@ level_map:
 Topic:Scanwalk Scrolling
 ========================
 
-Scanwalk scrolling is a techinque for horizontal, so-called infinite scrolling,
+Scanwalk scrolling is a technique for horizontal, so-called infinite scrolling,
 which is tile-based using a 'level map' with indices in each element that
 indicates which tile graphics block to use for each playfield position. The
 playfield screen is thus built upon columns and rows of such tiles.
@@ -342,7 +342,7 @@ as well as being marginally faster to process.
 As an example, a level map describing 144 horizontal columns or tiles with
 a screen height of 10 tiles would require 144*10=1440 bytes to store the map.
 This is for tile graphics data sets with a maximum number of 256 tiles so that
-each element of the level map can be byte-sized. Each indice would then be in
+each element of the level map can be byte-sized. Each index would then be in
 the range of 0-255.
 
 With each tile's display size being 16x16 this would require 128 bytes for
@@ -625,7 +625,7 @@ of infinite scrolling. Consider the case where the x-position has changed to 16:
 
 In this situation, 8 more bytes are required at the end of the scanwalk minimal
 buffer to use for the end of last update column tile scanline past what had been
-allocated. This is the essence of the scanwalking method.
+allocated. This is the essence of the scanwalk method.
 
 Focusing in on the first and last scanwalk lines of the scanwalk minimal buffer
 (in byte form) the need for the extra 8 bytes can be seen.
@@ -1147,11 +1147,11 @@ valid phase blocks -------------.  (0-15)
                   | | | | | | | | | | | | | | | |
                   v v v v v v v v v v v v v v v v
   screen pixels | . . . . . . . . . . . . . . . . |
-                      ^
-                      |
-    x-position 3 -----+
-                      |
-natural phase block---'   (natural and in-phase)
+                        ^
+                        |
+      x-position 3 -----+
+                        |
+  natural phase block---'   (natural and in-phase)
 ----------------------------------------------------------------
 
 ----------------------------------------------------------------
@@ -1250,15 +1250,15 @@ may happen in either direction at the start.
 See Topic:Playfield Buffer
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-A sequence is presented to futher illustrate the idea:
+A sequence is presented to further illustrate the idea:
 
 --------------------------------------------------------------------------------
 step 1 - initial playfield draw - starting tile 12 speed 1
 
-At start we need to display tile columns 12-32 from the level map.
+At start we need to display tile columns 12-31 from the level map.
 Shown with accompanying update and scroll columns.
 
- |u| playfield tile columns 12-32 |s|u|
+ |u| playfield tile columns 12-31 |s|u|
 
 Because we don't know ahead of time which way scrolling will be initiated at
 the start we therefore populate both the left update column and the scroll
@@ -1268,10 +1268,10 @@ column a pseudo-scroll column for the start.
 The direction value is set to RIGHT as the default which implies the right
 update column will be used.
 
-  .---tile column 11 filled        .---tile column 33 filled
+  .---tile column 11 filled        .---tile column 32 filled
   |                                |
   v                                v
- |s| playfield tile columns 12-32 |s|u|
+ |s| playfield tile columns 12-31 |s|u|
     ^                                ^
     |                                |
     |                                '---right update column used
@@ -1280,13 +1280,13 @@ update column will be used.
   |
   v
  ---
-  | now one of two things can happen
+  | now one of two things can happen:
  .-.
  | |    ------------------------------------------------------------------------
  | '--> step 2a - immediate move to the left - tile column 11
  |
  |      With an immediate move to the left from pixel 0 of tile 12 we have moved
- |      into column 11 as the first column display on-screen. Since this was
+ |      into column 11 as the first column displayed on-screen. Since this was
  |      filled during the initial draw it is no problem. The screen address
  |      pointer is decremented by 8 and the scroll value is set to 15 as we are
  |      at speed -1.
@@ -1298,15 +1298,15 @@ update column will be used.
  |       .---change to use left update column
  |       |
  |       v
- |      |u| playfield tile columns 11-31 |s|u|
+ |      |u| playfield tile columns 11-30 |s|u|
  |         ^                              ^
  |         |                              |
- |         |                              '---contains intact data for column 32
+ |         |                              '---contains intact data for column 31
  |         |
  |         '---display start from pixel 15 of column 11
  |
  |      The left update column will then continue to be used during the update
- |      intervals as long as there is no column changes, irregardless of
+ |      intervals as long as there are no column changes, irregardless of
  |      inter-column directional changes due to positive/negative speeds.
  |      ------------------------------------------------------------------------
  |
@@ -1324,7 +1324,7 @@ update column will be used.
                                           .---pixel 1 of scroll column visible
                                           |
                                           v
-        |u| playfield tile columns 12-32 |s|u|
+        |u| playfield tile columns 12-31 |s|u|
            ^                                ^
            |                                |
            |                                '---right update column used
@@ -1439,7 +1439,7 @@ in-phase with the new speed.
 Topic:Phase Completion
 ======================
 
-This scenario describes out an out-of-phase condition which can occur that
+This scenario describes an out-of-phase condition which can occur that
 requires 'phase completion'. This can happen when an x-position is near to the
 point where a coarse scroll is required when a speed increase happens.
 
